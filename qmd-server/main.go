@@ -10,16 +10,14 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/bitly/go-nsq"
 	"github.com/nulayer/qmd/common"
 	"github.com/rcrowley/go-tigertonic"
 )
 
 var (
-	listen = flag.String("listen", "127.0.0.1:4444", "listen address")
-	queue  = flag.String("queue", "127.0.0.1:4445", "queue address")
+	listen = flag.String("listen", "0.0.0.0:8080", "listen address")
+	queue  = flag.String("queue", "0.0.0.0:8181", "queue address")
 	mux    *tigertonic.TrieServeMux
-	writer nsq.Writer
 )
 
 func init() {
@@ -32,17 +30,17 @@ func init() {
 	mux = tigertonic.NewTrieServeMux()
 	mux.Handle("POST", "/job", tigertonic.Marshaled(create))
 	mux.Handle("GET", "/job/{id}", tigertonic.Marshaled(get))
-
-	// writer := nsq.NewWriter(*queue)
 }
 
 func main() {
 	flag.Parse()
 
-	server := tigertonic.NewServer(*listen, nil)
+	server := tigertonic.NewServer(*listen, mux)
+	fmt.Printf("Listening on %s\n", *listen)
 	go func() {
-		err := server.ListenAndServe()
-		if err != nil {
+		var err error
+		err = server.ListenAndServe()
+		if nil != err {
 			log.Println(err)
 		}
 	}()
@@ -66,6 +64,5 @@ func create(u *url.URL, h http.Header, rq *common.JobRequest) (int, http.Header,
 
 // GET /job/{id}
 func get(u *url.URL, h http.Header, rq *common.JobRequest) (int, http.Header, *common.JobResponse, error) {
-	fmt.Println("fuck")
 	return http.StatusOK, nil, &common.JobResponse{u.Query().Get("id"), "Here be scripts"}, nil
 }
