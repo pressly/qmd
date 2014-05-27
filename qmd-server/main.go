@@ -52,6 +52,14 @@ func main() {
 
 // POST /job
 func create(u *url.URL, h http.Header, rq *common.JobRequest) (int, http.Header, *common.JobResponse, error) {
+	for _, script := range rq.Scripts {
+		for _, params := range script.Params {
+			fmt.Println(params)
+		}
+	}
+
+	// TODO: Figure out how to push to the queue.
+
 	return http.StatusCreated, http.Header{
 		"Content-Location": {fmt.Sprintf(
 			"%s://%s/1.0/job/%s",
@@ -64,5 +72,11 @@ func create(u *url.URL, h http.Header, rq *common.JobRequest) (int, http.Header,
 
 // GET /job/{id}
 func get(u *url.URL, h http.Header, rq *common.JobRequest) (int, http.Header, *common.JobResponse, error) {
-	return http.StatusOK, nil, &common.JobResponse{u.Query().Get("id"), "Here be scripts"}, nil
+
+	// TODO: Figure out how to request a job through the queue.
+
+	return http.StatusOK, nil, &common.JobResponse{
+		u.Query().Get("id"),
+		nil,
+	}, nil
 }
