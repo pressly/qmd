@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
 	"fmt"
 	"log"
@@ -10,14 +11,16 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/bitly/go-nsq"
 	"github.com/nulayer/qmd/common"
 	"github.com/rcrowley/go-tigertonic"
 )
 
 var (
-	listen = flag.String("listen", "0.0.0.0:8080", "listen address")
-	queue  = flag.String("queue", "0.0.0.0:8181", "queue address")
-	mux    *tigertonic.TrieServeMux
+	listen   = flag.String("listen", "0.0.0.0:8080", "listen address")
+	queue    = flag.String("queue", "0.0.0.0:8181", "queue address")
+	mux      *tigertonic.TrieServeMux
+	producer *nsq.Producer
 )
 
 func init() {
@@ -35,12 +38,15 @@ func init() {
 func main() {
 	flag.Parse()
 
+	producer = nsq.NewProducer(*queue, nsq.NewConfig())
+	fmt.Printf("Sending to %s\n", *queue)
+
 	server := tigertonic.NewServer(*listen, mux)
 	fmt.Printf("Listening on %s\n", *listen)
 	go func() {
 		var err error
 		err = server.ListenAndServe()
-		if nil != err {
+		if err != nil {
 			log.Println(err)
 		}
 	}()
@@ -58,7 +64,18 @@ func create(u *url.URL, h http.Header, rq *common.JobRequest) (int, http.Header,
 		}
 	}
 
+	var err error
+
 	// TODO: Figure out how to push to the queue.
+	data, err := json.Marshal(rq.Scripts)
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	err = producer.Publish("jobs", data)
+	if err != nil {
+		fmt.Println(err)
+	}
 
 	return http.StatusCreated, http.Header{
 		"Content-Location": {fmt.Sprintf(
