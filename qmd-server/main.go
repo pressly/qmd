@@ -18,7 +18,7 @@ import (
 
 var (
 	listen   = flag.String("listen", "0.0.0.0:8080", "listen address")
-	queue    = flag.String("queue", "127.0.0.1:4151", "queue address")
+	queue    = flag.String("queue", "127.0.0.1:4150", "queue address")
 	topic    = flag.String("topic", "jobs", "queue topic")
 	mux      *tigertonic.TrieServeMux
 	producer *nsq.Producer
