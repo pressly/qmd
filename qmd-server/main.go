@@ -40,7 +40,7 @@ func main() {
 	flag.Parse()
 
 	producer = nsq.NewProducer(*queue, nsq.NewConfig())
-	fmt.Printf("Sending to %s\n", *queue)
+	fmt.Printf("Sending to %s\n", producer.String())
 
 	server := tigertonic.NewServer(*listen, mux)
 	fmt.Printf("Listening on %s\n", *listen)
@@ -51,9 +51,11 @@ func main() {
 			log.Println(err)
 		}
 	}()
-	ch := make(chan os.Signal)
-	signal.Notify(ch, syscall.SIGINT, syscall.SIGQUIT, syscall.SIGTERM)
-	log.Println(<-ch)
+
+	termChan := make(chan os.Signal, 1)
+	signal.Notify(termChan, syscall.SIGINT, syscall.SIGQUIT, syscall.SIGTERM)
+	log.Println(<-termChan)
+	fmt.Println("Safely shutting down server now...")
 	server.Close()
 }
 
@@ -66,11 +68,14 @@ func create(u *url.URL, h http.Header, rq *common.JobRequest) (int, http.Header,
 	if err != nil {
 		fmt.Println(err)
 	}
+	fmt.Println(data)
 
-	err = producer.Publish(*topic, data)
+	doneChan := make(chan *nsq.ProducerTransaction)
+	err = producer.PublishAsync(*topic, data, doneChan, nil)
 	if err != nil {
 		fmt.Println(err)
 	}
+	log.Println(<-doneChan)
 
 	return http.StatusCreated, http.Header{
 		"Content-Location": {fmt.Sprintf(
