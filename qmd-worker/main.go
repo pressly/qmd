@@ -4,9 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"os/exec"
 	"os/signal"
-	"strings"
 	"syscall"
 
 	"github.com/bitly/go-nsq"
@@ -42,12 +40,13 @@ func main() {
 
 	// Set the message handler.
 	consumer.SetHandler(nsq.HandlerFunc(func(m *nsq.Message) error {
-		cmd := strings.Split(string(m.Body), " ")
-		out, err := exec.Command(string(cmd[0]), cmd[1:]...).Output()
-		if err != nil {
-			return err
-		}
-		fmt.Println(string(out))
+		//		cmd := strings.Split(string(m.Body), " ")
+		//		out, err := exec.Command(string(cmd[0]), cmd[1:]...).Output()
+		//		if err != nil {
+		//			return err
+		//		}
+		//		fmt.Println(string(out))
+		fmt.Println(string(m.Body))
 		return nil
 	}))
 
