@@ -18,14 +18,15 @@ import (
 
 var (
 	listen   = flag.String("listen", "0.0.0.0:8080", "listen address")
-	queue    = flag.String("queue", "0.0.0.0:8181", "queue address")
+	queue    = flag.String("queue", "127.0.0.1:4151", "queue address")
+	topic    = flag.String("topic", "jobs", "queue topic")
 	mux      *tigertonic.TrieServeMux
 	producer *nsq.Producer
 )
 
 func init() {
 	flag.Usage = func() {
-		fmt.Fprintln(os.Stderr, "Usage: qmd-server [-listen=<listen>] [-queue=<queue>]")
+		fmt.Fprintln(os.Stderr, "Usage: qmd-server [-listen=<listen>] [-queue=<queue>] [-topic=<topic>]")
 		flag.PrintDefaults()
 	}
 
@@ -58,21 +59,15 @@ func main() {
 
 // POST /job
 func create(u *url.URL, h http.Header, rq *common.JobRequest) (int, http.Header, *common.JobResponse, error) {
-	for _, script := range rq.Scripts {
-		for _, params := range script.Params {
-			fmt.Println(params)
-		}
-	}
 
 	var err error
 
-	// TODO: Figure out how to push to the queue.
 	data, err := json.Marshal(rq.Scripts)
 	if err != nil {
 		fmt.Println(err)
 	}
 
-	err = producer.Publish("jobs", data)
+	err = producer.Publish(*topic, data)
 	if err != nil {
 		fmt.Println(err)
 	}
