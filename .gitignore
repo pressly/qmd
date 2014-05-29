@@ -27,3 +27,4 @@ Vagrantfile
 .vagrant
 qmd-server/qmd-server
 qmd-worker/qmd-worker
+qmd-worker/scripts
