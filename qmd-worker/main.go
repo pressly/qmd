@@ -1,13 +1,16 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
 	"fmt"
 	"os"
+	"os/exec"
 	"os/signal"
 	"syscall"
 
 	"github.com/bitly/go-nsq"
+	"github.com/nulayer/qmd/common"
 )
 
 var (
@@ -40,13 +43,17 @@ func main() {
 
 	// Set the message handler.
 	consumer.SetHandler(nsq.HandlerFunc(func(m *nsq.Message) error {
-		//		cmd := strings.Split(string(m.Body), " ")
-		//		out, err := exec.Command(string(cmd[0]), cmd[1:]...).Output()
-		//		if err != nil {
-		//			return err
-		//		}
-		//		fmt.Println(string(out))
-		fmt.Println(string(m.Body))
+		job, err := parseMessage(m)
+		if err != nil {
+			fmt.Println(err)
+			return err
+		}
+
+		err = runScript(job)
+		if err != nil {
+			fmt.Println(err)
+			return err
+		}
 		return nil
 	}))
 
@@ -65,4 +72,25 @@ func main() {
 			consumer.Stop()
 		}
 	}
+}
+
+func parseMessage(m *nsq.Message) (common.Job, error) {
+	var job common.Job
+	err := json.Unmarshal(m.Body, &job)
+	if err != nil {
+		return job, err
+	}
+	return job, nil
+}
+
+func runScript(job common.Job) error {
+	for _, script := range job.Scripts {
+		// TODO: Make the strings safe. Somehow...
+		out, err := exec.Command(script.Name, script.Params...).Output()
+		if err != nil {
+			return err
+		}
+		fmt.Println(string(out))
+	}
+	return nil
 }
