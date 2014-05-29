@@ -1,16 +1,11 @@
 package common
 
-type JobRequest struct {
-	ID      string   `json:"id"`
-	Scripts []Script `json:"scripts"`
-}
-
-type JobResponse struct {
+type Job struct {
 	ID      string   `json:"id"`
 	Scripts []Script `json:"scripts"`
 }
 
 type Script struct {
-	Name   string                   `json:"name"`
-	Params []map[string]interface{} `json:"params"`
+	Name   string   `json:"name"`
+	Params []string `json:"params"`
 }
