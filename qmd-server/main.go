@@ -60,11 +60,11 @@ func main() {
 }
 
 // POST /job
-func create(u *url.URL, h http.Header, rq *common.JobRequest) (int, http.Header, *common.JobResponse, error) {
+func create(u *url.URL, h http.Header, rq *common.Job) (int, http.Header, *common.Job, error) {
 
 	var err error
 
-	data, err := json.Marshal(rq.Scripts)
+	data, err := json.Marshal(rq)
 	if err != nil {
 		fmt.Println(err)
 	}
@@ -84,15 +84,15 @@ func create(u *url.URL, h http.Header, rq *common.JobRequest) (int, http.Header,
 			u.Host,
 			rq.ID,
 		)},
-	}, &common.JobResponse{rq.ID, rq.Scripts}, nil
+	}, &common.Job{rq.ID, rq.Scripts}, nil
 }
 
 // GET /job/{id}
-func get(u *url.URL, h http.Header, rq *common.JobRequest) (int, http.Header, *common.JobResponse, error) {
+func get(u *url.URL, h http.Header, rq *common.Job) (int, http.Header, *common.Job, error) {
 
 	// TODO: Figure out how to request a job through the queue.
 
-	return http.StatusOK, nil, &common.JobResponse{
+	return http.StatusOK, nil, &common.Job{
 		u.Query().Get("id"),
 		nil,
 	}, nil
