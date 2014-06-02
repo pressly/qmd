@@ -1,6 +1,6 @@
 # QMD
 
-Qmd prounounced "command" is utility http service for executing arbitary scripts.
+..prounounced "command", is utility http service for executing arbitary scripts.
 We use it to compile javascript assets and upload them to s3. 
 
 # API
@@ -75,7 +75,7 @@ Response (json):
 * `elapsed_usec`: the amount of time in microseconds to run the script
 * `status`: the exit status of the script; either OK or ERR
 
-** Example: Enqueue a script to execute in the background and send output to a callback URL **
+**Example: Enqueue a script to execute in the background and send output to a callback URL**
 
 ```
 GET /scripts/hi.sh?callback_url=X&param1=a&param2=b
@@ -98,7 +98,7 @@ response to `callback_url`:
 }
 ```
 
-** Example: Execute a script synchronously and return the output **
+**Example: Execute a script synchronously and return the output**
 
 ```
 GET /scripts/hi.sh/exec?param1=A
@@ -169,7 +169,7 @@ in case of an error adding a script, instead return:
 * http status: 422
 * `err`: error message explaining the problem
 
-** Example: **
+**Example:**
 
 ```
 POST /scripts
@@ -203,11 +203,13 @@ the scripts, or make this endpoint optional / at-own-risk.
 
 4. Should we add script exec priority? 0, 1, 2, 3 .. etc. any number really.. like a z-order. How does
    nsq implement this?
-   
+
 
 # Authors / License
 
 Created by David Kua and Peter Kieltyka at Pressly Inc.
+
+Copyright (c) 2014 Pressly Inc. www.pressly.com
 
 MIT License
 
