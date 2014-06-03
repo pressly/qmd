@@ -44,15 +44,14 @@ Response (text):
 
 ```
 GET /scripts/hi.sh
-==
+```
+```
 #!/bin/sh
 echo "hiii"
 ```
 
 
 ### Execute a script
-
-Request:
 
 ```
 POST /scripts/:script_id/exec
@@ -104,7 +103,11 @@ response to `callback_url`:
 
 ```
 POST /scripts/hi.sh/exec
-==
+{
+ "args": ["a"]
+}
+```
+```
 {
  "exec_id": 2, "script_id": "hi.sh", "args": ["a"],
  "start_time": "2014-05-25T16:45:49Z", "elapsed_usec": 10000,
@@ -133,7 +136,8 @@ Response (json):
 
 ```
 GET /scripts/hi.sh/log
-==
+```
+```
 [{
  "exec_id": 2, "script_id": "hi.sh", "args": ["a"],
  "start_time": "2014-05-25T16:45:49Z", "elapsed_usec": 10000,
@@ -146,7 +150,7 @@ GET /scripts/hi.sh/log
 }]
 ```
 
-# USAGE NOTE
+# Security Note
 
 QMD exposes the command line over http, so be careful! It's intended to be used as an
 internal service. Even then authentication is required and the daemon should be run as
