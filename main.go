@@ -4,13 +4,19 @@ import (
 	"flag"
 	"fmt"
 
+	"net/http"
+
 	"github.com/BurntSushi/toml"
 	"github.com/bitly/go-nsq"
+	"github.com/gorilla/mux"
 )
 
 var (
 	configPath = flag.String("config-path", "./qmd.toml", "path to config file")
 	config     Config
+
+	producer *nsq.Producer
+	consumer *nsq.Consumer
 )
 
 func main() {
@@ -21,16 +27,22 @@ func main() {
 		fmt.Println(err)
 		return
 	}
+	producer = nsq.NewProducer(config.QueueAddr, nsq.NewConfig())
 
-	producer := nsq.NewProducer(config.QueueAddr, nsq.NewConfig())
-	server := Server{producer}
-	server.Run()
-
-	consumer, err := nsq.NewConsumer(config.Topic, config.Worker.Channel, nsq.NewConfig())
+	// Setup and start worker.
+	worker, err := NewWorker(config)
 	if err != nil {
 		fmt.Println(err)
-		return
 	}
-	worker := Worker{consumer, config.Worker.Throughput}
 	worker.Run()
+
+	// Register endpoints
+	rtr := mux.NewRouter()
+	pre := rtr.PathPrefix("/scripts").Subrouter()
+	pre.HandleFunc("/", GetAllScripts).Methods("GET")
+	pre.HandleFunc("/{name}/", RunScript).Methods("POST")
+	pre.HandleFunc("/{name}/logs", GetAllLogs).Methods("GET")
+	pre.HandleFunc("/{name}/logs/{id}/", GetLog).Methods("GET")
+
+	http.ListenAndServe(config.ListenOnAddr, nil)
 }

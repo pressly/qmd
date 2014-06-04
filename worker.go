@@ -3,54 +3,60 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"os/exec"
+	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/bitly/go-nsq"
-	"github.com/nulayer/qmd/common"
 )
 
 type Worker struct {
 	Consumer   *nsq.Consumer
 	Throughput int
+	QueueAddr  string
+}
+
+func NewWorker(c Config) (Worker, error) {
+	consumer, err := nsq.NewConsumer(c.Topic, c.Worker.Channel, nsq.NewConfig())
+	if err != nil {
+		return Worker{}, err
+	}
+	return Worker{consumer, c.Worker.Throughput, c.QueueAddr}, nil
 }
 
 func (w *Worker) Run() {
 	// Set the message handler.
 	w.Consumer.SetHandler(nsq.HandlerFunc(func(m *nsq.Message) error {
-		job, err := w.parse(m)
+		var job Job
+		err := json.Unmarshal(m.Body, &job)
 		if err != nil {
 			fmt.Println(err)
-			return err
 		}
 
-		err = w.execute(job)
+		out, err := job.Execute()
 		if err != nil {
-			fmt.Println(err)
 			return err
 		}
+		fmt.Println(out) // TODO: Send out to Redis
 		return nil
 	}))
-}
 
-func (w *Worker) parse(m *nsq.Message) (common.Job, error) {
-	var job common.Job
-	err := json.Unmarshal(m.Body, &job)
+	// Connect the queue.
+	fmt.Printf("Connecting to %s\n", w.QueueAddr)
+	err := w.Consumer.ConnectToNSQLookupd(w.QueueAddr)
 	if err != nil {
-		return job, err
+		fmt.Println(err)
 	}
-	return job, nil
-}
 
-func (w *Worker) execute(job common.Job) error {
-	var name string
-	for _, script := range job.Scripts {
-		// TODO: Make the strings safe. Somehow...
-		name = fmt.Sprintf("./%s", script.Name)
-		out, err := exec.Command(name, script.Params...).Output()
-		if err != nil {
-			return err
+	termChan := make(chan os.Signal, 1)
+	signal.Notify(termChan, syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
+
+	for {
+		select {
+		case <-w.Consumer.StopChan:
+			return
+		case <-termChan:
+			w.Consumer.Stop()
 		}
-		fmt.Println(string(out))
 	}
-	return nil
 }
