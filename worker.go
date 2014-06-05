@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"os"
 	"os/signal"
 	"syscall"
@@ -30,22 +31,24 @@ func (w *Worker) Run() {
 		var job Job
 		err := json.Unmarshal(m.Body, &job)
 		if err != nil {
-			fmt.Println(err)
+			log.Println(err)
 		}
+		log.Printf("Dequeued request as Job #%s", job.ID)
 
-		out, err := job.Execute()
+		_, err = job.Execute()
 		if err != nil {
 			return err
 		}
-		fmt.Println(out) // TODO: Send out to Redis
+
+		go job.Log()
 		return nil
 	}))
 
 	// Connect the queue.
 	fmt.Printf("Connecting to %s\n", w.QueueAddr)
-	err := w.Consumer.ConnectToNSQLookupd(w.QueueAddr)
+	err := w.Consumer.ConnectToNSQD(w.QueueAddr)
 	if err != nil {
-		fmt.Println(err)
+		log.Println(err)
 	}
 
 	termChan := make(chan os.Signal, 1)

@@ -4,6 +4,7 @@ type Config struct {
 	Topic        string
 	ListenOnAddr string
 	QueueAddr    string
+	RedisAddr    string
 	Worker       worker
 }
 
