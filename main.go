@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"log"
 	"os"
 	"os/signal"
 	"syscall"
@@ -28,10 +29,12 @@ func main() {
 	fmt.Printf("Using config file from: %s\n", *configPath)
 
 	var err error
-	if _, err = toml.DecodeFile(*configPath, &config); err != nil {
-		fmt.Println(err)
+	_, err = toml.DecodeFile(*configPath, &config)
+	if err != nil {
+		log.Println(err)
 		return
 	}
+
 	fmt.Println("Setting up producer")
 	producer = nsq.NewProducer(config.QueueAddr, nsq.NewConfig())
 
@@ -45,7 +48,8 @@ func main() {
 	fmt.Println("Creating worker")
 	worker, err := NewWorker(config)
 	if err != nil {
-		fmt.Println(err)
+		log.Println(err)
+		return
 	}
 	go worker.Run()
 
