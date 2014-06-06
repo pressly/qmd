@@ -16,7 +16,6 @@ type ScriptRequest struct {
 	ID     string
 	Script string   `json:"script"`
 	Args   []string `json:"args"`
-	Dir    string   `json:"dir"`
 }
 
 func GetAllScripts(w http.ResponseWriter, r *http.Request) {
@@ -43,6 +42,9 @@ func RunScript(w http.ResponseWriter, r *http.Request) {
 	}
 	id := feeds.NewUUID().String()
 	sr.ID = id
+
+	params := mux.Vars(r)
+	sr.Script = params["name"]
 
 	// Queue up the request
 	doneChan := make(chan *nsq.ProducerTransaction)

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -15,14 +16,54 @@ type Worker struct {
 	Consumer   *nsq.Consumer
 	Throughput int
 	QueueAddr  string
+	WorkingDir string
+	WhiteList  map[string]bool
 }
 
 func NewWorker(c Config) (Worker, error) {
+	fmt.Printf("Creating consumer with topic: %s and channel: %s.\n", c.Topic, c.Worker.Channel)
 	consumer, err := nsq.NewConsumer(c.Topic, c.Worker.Channel, nsq.NewConfig())
 	if err != nil {
+		log.Println(err)
 		return Worker{}, err
 	}
-	return Worker{consumer, c.Worker.Throughput, c.QueueAddr}, nil
+
+	// Generate whitelist of allowed scripts.
+	fmt.Printf("Creating whitelist from %s\n", c.Worker.ScriptDir)
+	path := fmt.Sprintf("%s/%s", c.Worker.ScriptDir, c.Worker.WhiteList)
+	whiteList, err := ParseWhiteList(path)
+	if err != nil {
+		log.Println(err)
+		return Worker{}, err
+	}
+
+	for k := range whiteList {
+		fmt.Println(k)
+	}
+
+	fmt.Printf("Worker connecting to %s and running scripts in %s.\n", c.QueueAddr, c.Worker.Dir)
+	return Worker{
+		consumer,
+		c.Worker.Throughput,
+		c.QueueAddr,
+		c.Worker.Dir,
+		whiteList,
+	}, nil
+}
+
+func ParseWhiteList(path string) (map[string]bool, error) {
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	whitelist := make(map[string]bool)
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		whitelist[scanner.Text()] = true
+	}
+	return whitelist, scanner.Err()
 }
 
 func (w *Worker) Run() {
@@ -33,13 +74,22 @@ func (w *Worker) Run() {
 		if err != nil {
 			log.Println(err)
 		}
-		log.Printf("Dequeued request as Job #%s", job.ID)
 
-		_, err = job.Execute()
-		if err != nil {
-			return err
+		if w.WhiteList[job.Script] {
+			job.Dir = w.WorkingDir
+			log.Printf("Dequeued request as Job #%s", job.ID)
+
+			_, err = job.Execute()
+			if err != nil {
+				job.Output = err.Error()
+				job.Log()
+				return err
+			}
+		} else {
+			msg := fmt.Sprintf("%s is not on script whitelist", job.Script)
+			job.Output = msg
+			log.Println(msg)
 		}
-
 		go job.Log()
 		return nil
 	}))

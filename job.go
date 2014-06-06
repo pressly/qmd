@@ -33,14 +33,14 @@ func (j *Job) Log() error {
 		return err
 	}
 
-	log.Println("Adding to job list")
+	log.Printf("Adding %s to log list\n", j.ID)
 	_, err = conn.Do("LPUSH", j.Script, data)
 	if err != nil {
 		log.Println(err)
 		return err
 	}
 
-	log.Println("Adding log to Redis")
+	log.Printf("Adding log for %s to Redis\n", j.ID)
 	_, err = conn.Do("SET", j.ID, data)
 	if err != nil {
 		log.Println(err)

@@ -12,5 +12,6 @@ type worker struct {
 	Channel    string
 	Throughput int
 	ScriptDir  string
-	WorkingDir string
+	WhiteList  string
+	Dir        string
 }
