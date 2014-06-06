@@ -12,7 +12,7 @@ type Job struct {
 	ID         string   `json:"id"`
 	Script     string   `json:"script"`
 	Args       []string `json:"args"`
-	Dir        string   `json:"dir"`
+	Dir        string
 	Output     string
 	StartTime  time.Time
 	FinishTime time.Time
@@ -56,7 +56,8 @@ func (j *Job) Execute() ([]byte, error) {
 	}
 
 	j.StartTime = time.Now()
-	cmd := exec.Command(j.Script, args...)
+	s := fmt.Sprintf("./%s", j.Script)
+	cmd := exec.Command(s, args...)
 	cmd.Dir = j.Dir
 	log.Printf("Executing command: %s in %s\n", cmd.Args, cmd.Dir)
 	out, err := cmd.Output()

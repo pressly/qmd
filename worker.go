@@ -6,8 +6,6 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"os/signal"
-	"syscall"
 
 	"github.com/bitly/go-nsq"
 )
@@ -72,44 +70,31 @@ func (w *Worker) Run() {
 		var job Job
 		err := json.Unmarshal(m.Body, &job)
 		if err != nil {
-			log.Println(err)
+			log.Println("Invalid JSON request", err)
+			return nil
 		}
 
 		if w.WhiteList[job.Script] {
 			job.Dir = w.WorkingDir
-			log.Printf("Dequeued request as Job #%s", job.ID)
+			log.Println("Dequeued request as Job", job.ID)
 
 			_, err = job.Execute()
 			if err != nil {
 				job.Output = err.Error()
-				job.Log()
-				return err
 			}
 		} else {
 			msg := fmt.Sprintf("%s is not on script whitelist", job.Script)
 			job.Output = msg
-			log.Println(msg)
 		}
-		go job.Log()
+		log.Println(job.Output)
+		job.Log()
 		return nil
 	}))
 
 	// Connect the queue.
-	fmt.Printf("Connecting to %s\n", w.QueueAddr)
+	fmt.Println("Connecting to", w.QueueAddr)
 	err := w.Consumer.ConnectToNSQD(w.QueueAddr)
 	if err != nil {
 		log.Println(err)
-	}
-
-	termChan := make(chan os.Signal, 1)
-	signal.Notify(termChan, syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
-
-	for {
-		select {
-		case <-w.Consumer.StopChan:
-			return
-		case <-termChan:
-			w.Consumer.Stop()
-		}
 	}
 }

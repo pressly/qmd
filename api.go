@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -16,6 +17,7 @@ type ScriptRequest struct {
 	ID     string
 	Script string   `json:"script"`
 	Args   []string `json:"args"`
+	Dir    string   `json:"dir"`
 }
 
 func GetAllScripts(w http.ResponseWriter, r *http.Request) {
@@ -43,8 +45,8 @@ func RunScript(w http.ResponseWriter, r *http.Request) {
 	id := feeds.NewUUID().String()
 	sr.ID = id
 
-	params := mux.Vars(r)
-	sr.Script = params["name"]
+	vars := mux.Vars(r)
+	sr.Script = vars["name"]
 
 	// Queue up the request
 	doneChan := make(chan *nsq.ProducerTransaction)
@@ -74,6 +76,7 @@ func GetAllLogs(w http.ResponseWriter, r *http.Request) {
 
 	params := mux.Vars(r)
 
+	// LRANGE returns an array of json strings
 	reply, err := redis.Strings(conn.Do("LRANGE", params["name"], 0, -1))
 	if err != nil {
 		log.Println(err)
@@ -81,15 +84,17 @@ func GetAllLogs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	data, err := json.Marshal(reply)
-	if err != nil {
-		log.Println(err)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+	data := "["
+	for i, log := range reply {
+		data = fmt.Sprintf("%s%s", data, log)
+		if i < len(reply)-1 {
+			data = fmt.Sprintf("%s,", data)
+		}
 	}
+	data = fmt.Sprintf("%s]", data)
 
 	w.Header().Set("Content-Type", "application/json")
-	w.Write(data)
+	w.Write([]byte(data))
 }
 
 func GetLog(w http.ResponseWriter, r *http.Request) {
