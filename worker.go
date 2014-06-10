@@ -21,6 +21,8 @@ type Worker struct {
 	Throughput int
 	QueueAddr  string
 	ScriptDir  string
+	StoreDir   string
+	WorkingDir string
 	WhiteList  map[string]bool
 }
 
@@ -38,6 +40,8 @@ func NewWorker(c Config) (Worker, error) {
 	worker.Throughput = c.Worker.Throughput
 	worker.QueueAddr = c.QueueAddr
 	worker.ScriptDir = c.Worker.ScriptDir
+	worker.StoreDir = c.Worker.StoreDir
+	worker.WorkingDir = c.Worker.WorkingDir
 
 	// Generate whitelist of allowed scripts.
 	path := path.Join(config.Worker.ScriptDir, config.Worker.WhiteList)
@@ -47,7 +51,7 @@ func NewWorker(c Config) (Worker, error) {
 		return worker, err
 	}
 
-	fmt.Printf("Worker connecting to %s and running scripts in %s.\n", c.QueueAddr, c.Worker.Dir)
+	fmt.Printf("Worker connecting to %s and running scripts in %s.\n", c.QueueAddr, c.Worker.WorkingDir)
 	return worker, nil
 }
 
@@ -89,6 +93,8 @@ func (w *Worker) Run() {
 		var job Job
 		job.Status = STATUS_ERR
 		job.ScriptDir = w.ScriptDir
+		job.WorkingDir = w.WorkingDir
+		job.StoreDir = w.StoreDir
 
 		err := json.Unmarshal(m.Body, &job)
 		if err != nil {
@@ -102,16 +108,17 @@ func (w *Worker) Run() {
 
 			_, err = job.Execute()
 			if err != nil {
-				job.Output = err.Error()
+				job.ExecLog = err.Error()
 			}
 			job.Status = STATUS_OK
 		} else {
 			msg := fmt.Sprintf("%s is not on script whitelist", job.Script)
-			job.Output = msg
+			job.ExecLog = msg
 		}
 
-		log.Println(job.Output)
+		log.Println(job.ExecLog)
 		job.Log()
+		job.Callback()
 		return nil
 	}))
 

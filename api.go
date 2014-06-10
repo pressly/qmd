@@ -16,10 +16,10 @@ import (
 )
 
 type ScriptRequest struct {
-	ID     int
-	Script string   `json:"script"`
-	Args   []string `json:"args"`
-	Dir    string   `json:"dir"`
+	ID          int
+	Script      string   `json:"script"`
+	Args        []string `json:"args"`
+	CallbackURL string   `json:"callback_url"`
 }
 
 func GetAllScripts(w http.ResponseWriter, r *http.Request) {
