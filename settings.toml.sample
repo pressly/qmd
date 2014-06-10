@@ -6,6 +6,6 @@ RedisAddr    = ":6379"
 [worker]
 Channel    = "qmd"
 Throughput = 20
-ScriptDir  = "./scripts"
+ScriptDir  = "/home/vagrant/qmd/scripts"
 WhiteList = "whitelist.toml"
-WorkingDir = "./"
+WorkingDir = "/home/vagrant/lol"

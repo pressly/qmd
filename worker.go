@@ -11,82 +11,105 @@ import (
 	"github.com/bitly/go-nsq"
 )
 
+const (
+	STATUS_OK  string = "OK"
+	STATUS_ERR string = "ERR"
+)
+
 type Worker struct {
 	Consumer   *nsq.Consumer
 	Throughput int
 	QueueAddr  string
-	WorkingDir string
+	ScriptDir  string
 	WhiteList  map[string]bool
 }
 
 func NewWorker(c Config) (Worker, error) {
 	fmt.Printf("Creating consumer with topic: %s and channel: %s.\n", c.Topic, c.Worker.Channel)
+
+	var worker Worker
+
 	consumer, err := nsq.NewConsumer(c.Topic, c.Worker.Channel, nsq.NewConfig())
 	if err != nil {
 		log.Println(err)
-		return Worker{}, err
+		return worker, err
 	}
+	worker.Consumer = consumer
+	worker.Throughput = c.Worker.Throughput
+	worker.QueueAddr = c.QueueAddr
+	worker.ScriptDir = c.Worker.ScriptDir
 
 	// Generate whitelist of allowed scripts.
 	path := path.Join(config.Worker.ScriptDir, config.Worker.WhiteList)
-	fmt.Printf("Creating whitelist from %s\n", path)
-	whiteList, err := ParseWhiteList(path)
+	err = worker.LoadWhiteList(path)
 	if err != nil {
 		log.Println(err)
-		return Worker{}, err
-	}
-
-	for k := range whiteList {
-		fmt.Println(k)
+		return worker, err
 	}
 
 	fmt.Printf("Worker connecting to %s and running scripts in %s.\n", c.QueueAddr, c.Worker.Dir)
-	return Worker{
-		consumer,
-		c.Worker.Throughput,
-		c.QueueAddr,
-		c.Worker.Dir,
-		whiteList,
-	}, nil
+	return worker, nil
 }
 
-func ParseWhiteList(path string) (map[string]bool, error) {
+func (w *Worker) LoadWhiteList(path string) error {
+	fmt.Printf("Creating whitelist from %s\n", path)
+
 	file, err := os.Open(path)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	defer file.Close()
 
-	whitelist := make(map[string]bool)
+	whiteList := make(map[string]bool)
+
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
-		whitelist[scanner.Text()] = true
+		whiteList[scanner.Text()] = true
 	}
-	return whitelist, scanner.Err()
+	err = scanner.Err()
+	if err != nil {
+		log.Println(err)
+		return err
+	}
+
+	fmt.Println("Whitelist:")
+	for script := range whiteList {
+		fmt.Println(script)
+	}
+
+	w.WhiteList = whiteList
+	return nil
 }
 
 func (w *Worker) Run() {
 	// Set the message handler.
 	w.Consumer.SetHandler(nsq.HandlerFunc(func(m *nsq.Message) error {
+
+		// Initialize Job from request
 		var job Job
+		job.Status = STATUS_ERR
+		job.ScriptDir = w.ScriptDir
+
 		err := json.Unmarshal(m.Body, &job)
 		if err != nil {
 			log.Println("Invalid JSON request", err)
 			return nil
 		}
 
+		// Try and run script
 		if w.WhiteList[job.Script] {
-			job.Dir = w.WorkingDir
 			log.Println("Dequeued request as Job", job.ID)
 
 			_, err = job.Execute()
 			if err != nil {
 				job.Output = err.Error()
 			}
+			job.Status = STATUS_OK
 		} else {
 			msg := fmt.Sprintf("%s is not on script whitelist", job.Script)
 			job.Output = msg
 		}
+
 		log.Println(job.Output)
 		job.Log()
 		return nil
