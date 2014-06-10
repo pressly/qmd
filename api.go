@@ -114,11 +114,13 @@ func GetAllLogs(w http.ResponseWriter, r *http.Request) {
 
 	var buf bytes.Buffer
 	buf.WriteString("[")
-	buf.WriteString(reply[0])
 
-	for _, log := range reply[1:] {
-		buf.WriteString(", ")
-		buf.WriteString(log)
+	if len(reply) > 0 {
+		buf.WriteString(reply[0])
+		for i := 1; i < len(reply); i++ {
+			buf.WriteString(", ")
+			buf.WriteString(reply[i])
+		}
 	}
 	buf.WriteString("]")
 	w.Header().Set("Content-Type", "application/json")

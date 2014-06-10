@@ -34,8 +34,15 @@ func (j *Job) Log() error {
 		return err
 	}
 
-	log.Printf("Adding log for %s to Redis\n", j.ID)
+	log.Printf("Adding job %s to log for %s to Redis\n", j.ID, j.Script)
 	_, err = conn.Do("ZADD", j.Script, j.ID, data)
+	if err != nil {
+		log.Println(err)
+		return err
+	}
+
+	log.Printf("Trimming log for %s to the 50 most recent\n", j.Script)
+	_, err = conn.Do("ZREMRANGEBYRANK", j.Script, 0, -LOGLIMIT-1)
 	if err != nil {
 		log.Println(err)
 		return err
