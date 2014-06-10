@@ -1,20 +1,22 @@
 package main
 
 import (
+	"bufio"
+	"bytes"
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
+	"os"
+	"path"
 
 	"github.com/bitly/go-nsq"
 	"github.com/garyburd/redigo/redis"
-	"github.com/gorilla/feeds"
 	"github.com/gorilla/mux"
 )
 
 type ScriptRequest struct {
-	ID     string
+	ID     int
 	Script string   `json:"script"`
 	Args   []string `json:"args"`
 	Dir    string   `json:"dir"`
@@ -23,8 +25,31 @@ type ScriptRequest struct {
 func GetAllScripts(w http.ResponseWriter, r *http.Request) {
 	// Get a list of all the scripts in script folder.
 
-	// How??
-	// Send to queue and have it returned to me?
+	log.Printf("Received GET %s\n", r.URL)
+
+	// Open and parse whitelist
+	p := path.Join(config.Worker.ScriptDir, config.Worker.WhiteList)
+	file, err := os.Open(p)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	defer file.Close()
+
+	var buf bytes.Buffer
+	buf.WriteString("[")
+
+	scanner := bufio.NewScanner(file)
+	scanner.Scan()
+	buf.WriteString(scanner.Text())
+	for scanner.Scan() {
+		buf.WriteString(", ")
+		buf.WriteString(scanner.Text())
+	}
+	buf.WriteString("]")
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(buf.Bytes())
 }
 
 func RunScript(w http.ResponseWriter, r *http.Request) {
@@ -42,7 +67,10 @@ func RunScript(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Println(err)
 	}
-	id := feeds.NewUUID().String()
+	id, err := getRedisID()
+	if err != nil {
+		log.Println(err)
+	}
 	sr.ID = id
 
 	vars := mux.Vars(r)
@@ -77,24 +105,24 @@ func GetAllLogs(w http.ResponseWriter, r *http.Request) {
 	params := mux.Vars(r)
 
 	// LRANGE returns an array of json strings
-	reply, err := redis.Strings(conn.Do("LRANGE", params["name"], 0, -1))
+	reply, err := redis.Strings(conn.Do("ZRANGE", params["name"], 0, -1))
 	if err != nil {
 		log.Println(err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	data := "["
-	for i, log := range reply {
-		data = fmt.Sprintf("%s%s", data, log)
-		if i < len(reply)-1 {
-			data = fmt.Sprintf("%s,", data)
-		}
-	}
-	data = fmt.Sprintf("%s]", data)
+	var buf bytes.Buffer
+	buf.WriteString("[")
+	buf.WriteString(reply[0])
 
+	for _, log := range reply[1:] {
+		buf.WriteString(", ")
+		buf.WriteString(log)
+	}
+	buf.WriteString("]")
 	w.Header().Set("Content-Type", "application/json")
-	w.Write([]byte(data))
+	w.Write(buf.Bytes())
 }
 
 func GetLog(w http.ResponseWriter, r *http.Request) {
@@ -106,13 +134,15 @@ func GetLog(w http.ResponseWriter, r *http.Request) {
 	defer conn.Close()
 
 	params := mux.Vars(r)
+	script := params["name"]
+	id := params["id"]
 
-	reply, err := conn.Do("GET", params["id"])
+	reply, err := redis.Strings(conn.Do("ZRANGEBYSCORE", script, id, id))
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	w.Write(reply.([]byte))
+	w.Write([]byte(reply[0]))
 }

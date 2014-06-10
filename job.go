@@ -9,11 +9,12 @@ import (
 )
 
 type Job struct {
-	ID         string   `json:"id"`
+	ID         int      `json:"id"`
 	Script     string   `json:"script"`
 	Args       []string `json:"args"`
 	Dir        string
 	Output     string
+	Status     string
 	StartTime  time.Time
 	FinishTime time.Time
 }
@@ -33,15 +34,8 @@ func (j *Job) Log() error {
 		return err
 	}
 
-	log.Printf("Adding %s to log list\n", j.ID)
-	_, err = conn.Do("LPUSH", j.Script, data)
-	if err != nil {
-		log.Println(err)
-		return err
-	}
-
 	log.Printf("Adding log for %s to Redis\n", j.ID)
-	_, err = conn.Do("SET", j.ID, data)
+	_, err = conn.Do("ZADD", j.Script, j.ID, data)
 	if err != nil {
 		log.Println(err)
 		return err

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path"
 
 	"github.com/bitly/go-nsq"
 )
@@ -27,8 +28,8 @@ func NewWorker(c Config) (Worker, error) {
 	}
 
 	// Generate whitelist of allowed scripts.
-	fmt.Printf("Creating whitelist from %s\n", c.Worker.ScriptDir)
-	path := fmt.Sprintf("%s/%s", c.Worker.ScriptDir, c.Worker.WhiteList)
+	path := path.Join(config.Worker.ScriptDir, config.Worker.WhiteList)
+	fmt.Printf("Creating whitelist from %s\n", path)
 	whiteList, err := ParseWhiteList(path)
 	if err != nil {
 		log.Println(err)

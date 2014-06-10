@@ -1,9 +1,15 @@
 package main
 
 import (
+	"log"
 	"time"
 
 	"github.com/garyburd/redigo/redis"
+)
+
+const (
+	MAGICSTRING string = "QMD_LOG_IDS"
+	LOGLIMIT    int    = 50
 )
 
 func newPool(server string) *redis.Pool {
@@ -22,4 +28,16 @@ func newPool(server string) *redis.Pool {
 			return err
 		},
 	}
+}
+
+func getRedisID() (int, error) {
+	conn := redisDB.Get()
+	defer conn.Close()
+
+	id, err := redis.Int(conn.Do("INCR", MAGICSTRING))
+	if err != nil {
+		log.Println(err)
+		return id, err
+	}
+	return id, nil
 }
