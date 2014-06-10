@@ -103,7 +103,7 @@ response to `callback_url`:
 
 **Example: Execute a script synchronously and return the output**
 
-NOTE: this currently isn't implemented.. all script executions happen
+NOTE: this currently isn't implemented.. all script executions happen asynchronously
 and require a callback
 
 ```
