@@ -8,7 +8,7 @@ import (
 )
 
 const (
-	MAGICSTRING string = "QMD_LOG_IDS"
+	LOG_SEQ_KEY string = "QMD_LOG_IDS"
 	LOGLIMIT    int    = 50
 )
 
@@ -34,7 +34,7 @@ func getRedisID() (int, error) {
 	conn := redisDB.Get()
 	defer conn.Close()
 
-	id, err := redis.Int(conn.Do("INCR", MAGICSTRING))
+	id, err := redis.Int(conn.Do("INCR", LOG_SEQ_KEY))
 	if err != nil {
 		log.Println(err)
 		return id, err
