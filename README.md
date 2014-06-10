@@ -17,7 +17,7 @@ GET /scripts
 
 Response (json):
 
-* array of executable script files from the script working directory
+* array of executable scripts from `ScriptDir`
 
 **Example:**
 
@@ -47,14 +47,15 @@ GET /scripts/hi.sh
 ```
 ```
 #!/bin/sh
-echo "hiii"
+echo "some script output $1 $2" > $QMD_OUT
+echo "hiii this is part of the exec log"
 ```
 
 
 ### Execute a script
 
 ```
-POST /scripts/:script_id/exec
+POST /scripts/:script_id
 ```
 
 Request params (json):
@@ -68,7 +69,8 @@ Response (json):
 * `exec_id`: an auto-incrementing number
 * `script_id`: the filename in the scripts directory
 * `callback_url`: an endpoint to send the output
-* `output`: the piped STDOUT and STDERR output of the script
+* `exec_log`: the piped STDOUT and STDERR script execution log
+* `output`: the $QMD_OUT output
 * `start_time`: the time (in local system time) the script began to execute
 * `elapsed_usec`: the amount of time in microseconds to run the script
 * `status`: the exit status of the script; either OK or ERR
@@ -76,7 +78,7 @@ Response (json):
 **Example: Enqueue a script to execute in the background and send output to a callback URL**
 
 ```
-POST /scripts/hi.sh/exec
+POST /scripts/hi.sh
 {
  "callback_url": "http://...", args: ["a", "b"]
 }
@@ -95,14 +97,17 @@ response to `callback_url`:
 {
  "exec_id": 1, "script_id": "hi.sh", "args": ["a", "b"], "callback_url": "http://...",
  "start_time": "2014-05-25T16:45:49Z", "elapsed_usec": 3000, "status": "OK",
- "output": "the piped STDOUT and STDERR output of script"
+ "output": "some script output a b", "exec_log": "hiii this is part of the exec log"
 }
 ```
 
 **Example: Execute a script synchronously and return the output**
 
+NOTE: this currently isn't implemented.. all script executions happen asynchronously
+and require a callback
+
 ```
-POST /scripts/hi.sh/exec
+POST /scripts/hi.sh
 {
  "args": ["a"]
 }
@@ -110,8 +115,8 @@ POST /scripts/hi.sh/exec
 ```
 {
  "exec_id": 2, "script_id": "hi.sh", "args": ["a"],
- "start_time": "2014-05-25T16:45:49Z", "elapsed_usec": 10000,
- "status": "OK", "output": "the piped STDOUT and STDERR output of script"
+ "start_time": "2014-05-25T16:45:49Z", "elapsed_usec": 10000, "status": "OK",
+ "output": "some script output a", "exec_log": "hiii this is part of the exec log"
 }
 ```
 
@@ -140,13 +145,13 @@ GET /scripts/hi.sh/log
 ```
 [{
  "exec_id": 2, "script_id": "hi.sh", "args": ["a"],
- "start_time": "2014-05-25T16:45:49Z", "elapsed_usec": 10000,
- "status": "OK", "output": "the piped STDOUT and STDERR output of script"
+ "start_time": "2014-05-25T16:45:49Z", "elapsed_usec": 10000, "status": "OK",
+ "output": "some script output a", "exec_log": "hiii this is part of the exec log"
 },
 {
  "exec_id": 1, "script_id": "hi.sh", "args": ["a", "b"], "callback_url": "http://...",
  "start_time": "2014-05-25T16:45:49Z", "elapsed_usec": 3000, "status": "OK",
- "output": "the piped STDOUT and STDERR output of script"
+ "output": "some script output a b", "exec_log": "hiii this is part of the exec log"
 }]
 ```
 
