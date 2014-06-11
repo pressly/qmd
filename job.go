@@ -15,18 +15,18 @@ import (
 )
 
 type Job struct {
-	ID          int      `json:"id"`
-	Script      string   `json:"script"`
-	Args        []string `json:"args"`
-	CallbackURL string   `json:"callback_url"`
-	WorkingDir  string
-	ScriptDir   string
-	StoreDir    string
-	Output      string
-	ExecLog     string
-	Status      string
-	StartTime   time.Time
-	FinishTime  time.Time
+	ID          int       `json:"id"`
+	Script      string    `json:"script"`
+	Args        []string  `json:"args"`
+	CallbackURL string    `json:"callback_url"`
+	WorkingDir  string    `json:"working_dir"`
+	ScriptDir   string    `json:"script_dir"`
+	StoreDir    string    `json:"store_dir"`
+	Output      string    `json:"output"`
+	ExecLog     string    `json:"exec_log"`
+	Status      string    `json:"status"`
+	StartTime   time.Time `json:"start_time"`
+	FinishTime  time.Time `json:"end_time"`
 }
 
 func (j *Job) CleanArgs() ([]string, error) {
