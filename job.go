@@ -15,23 +15,38 @@ import (
 )
 
 type Job struct {
-	ID          int       `json:"id"`
-	Script      string    `json:"script"`
-	Args        []string  `json:"args"`
-	CallbackURL string    `json:"callback_url"`
-	WorkingDir  string    `json:"working_dir"`
-	ScriptDir   string    `json:"script_dir"`
-	StoreDir    string    `json:"store_dir"`
-	Output      string    `json:"output"`
-	ExecLog     string    `json:"exec_log"`
-	Status      string    `json:"status"`
-	StartTime   time.Time `json:"start_time"`
-	FinishTime  time.Time `json:"end_time"`
+	ID          int               `json:"id"`
+	Script      string            `json:"script"`
+	Args        []string          `json:"args"`
+	Files       map[string]string `json:"files"`
+	CallbackURL string            `json:"callback_url"`
+	WorkingDir  string            `json:"working_dir"`
+	ScriptDir   string            `json:"script_dir"`
+	StoreDir    string            `json:"store_dir"`
+	Output      string            `json:"output"`
+	ExecLog     string            `json:"exec_log"`
+	Status      string            `json:"status"`
+	StartTime   time.Time         `json:"start_time"`
+	FinishTime  time.Time         `json:"end_time"`
 }
 
 func (j *Job) CleanArgs() ([]string, error) {
 	// TODO find a way to clean the arguments
 	return j.Args, nil
+}
+
+func (j *Job) SaveFiles(dir string) error {
+	var err error
+	var file string
+	for name, data := range j.Files {
+		file = path.Join(dir, name)
+		log.Printf("Writing %s to disk\n", file)
+		err = ioutil.WriteFile(file, []byte(data), 0644)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (j *Job) Log() error {
@@ -78,6 +93,7 @@ func (j *Job) Callback() error {
 }
 
 func (j *Job) Execute() ([]byte, error) {
+	fmt.Println(j.Files)
 	j.StartTime = time.Now()
 
 	// Intialize script path and arguments
@@ -94,6 +110,12 @@ func (j *Job) Execute() ([]byte, error) {
 	tmpPath := path.Join(j.WorkingDir, "tmp", strconv.Itoa(j.ID))
 	os.MkdirAll(tmpPath, 0777)
 	os.Setenv("QMD_TMP", tmpPath)
+
+	err = j.SaveFiles(tmpPath)
+	if err != nil {
+		j.ExecLog = fmt.Sprintf("%s", err)
+		return nil, err
+	}
 
 	outPath := path.Join(tmpPath, "qmd.out")
 	os.Setenv("QMD_OUT", outPath)

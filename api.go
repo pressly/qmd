@@ -17,9 +17,10 @@ import (
 
 type ScriptRequest struct {
 	ID          int
-	Script      string   `json:"script"`
-	Args        []string `json:"args"`
-	CallbackURL string   `json:"callback_url"`
+	Script      string            `json:"script"`
+	Args        []string          `json:"args"`
+	Files       map[string]string `json:"files"`
+	CallbackURL string            `json:"callback_url"`
 }
 
 func GetAllScripts(w http.ResponseWriter, r *http.Request) {
