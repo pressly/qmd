@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
@@ -89,10 +90,13 @@ func (j *Job) Execute() ([]byte, error) {
 
 	// Set environment variables
 	os.Setenv("QMD_STORE", path.Clean(j.StoreDir))
+
 	tmpPath := path.Join(j.WorkingDir, "tmp", strconv.Itoa(j.ID))
 	os.MkdirAll(tmpPath, 0777)
 	os.Setenv("QMD_TMP", tmpPath)
-	os.Setenv("QMD_OUT", path.Join(j.WorkingDir, "qmd.out"))
+
+	outPath := path.Join(tmpPath, "qmd.out")
+	os.Setenv("QMD_OUT", outPath)
 
 	// Setup and execute cmd
 	cmd := exec.Command(s, args...)
@@ -106,6 +110,12 @@ func (j *Job) Execute() ([]byte, error) {
 		j.ExecLog = fmt.Sprintf("%s", err)
 		return nil, err
 	}
+
+	data, err := ioutil.ReadFile(outPath)
+	if err != nil {
+		log.Println(err)
+	}
+	j.Output = string(data)
 
 	j.ExecLog = string(out)
 	return out, err
