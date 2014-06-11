@@ -5,6 +5,7 @@ type Config struct {
 	ListenOnAddr string
 	QueueAddr    string
 	RedisAddr    string
+	DeleteTmp    bool
 	Worker       worker
 }
 
