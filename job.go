@@ -137,8 +137,17 @@ func (j *Job) Execute() ([]byte, error) {
 	if err != nil {
 		log.Println(err)
 	}
-	j.Output = string(data)
 
+	j.Output = string(data)
 	j.ExecLog = string(out)
+
+	if !config.KeepTemp {
+		log.Println("Deleting all files and dirs in", tmpPath)
+		err = os.RemoveAll(tmpPath)
+		if err != nil {
+			log.Println("Failed to delete all files and dirs in", tmpPath)
+			log.Println(err)
+		}
+	}
 	return out, err
 }
