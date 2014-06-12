@@ -16,7 +16,7 @@ import (
 )
 
 var (
-	configPath = flag.String("config-path", "./qmd.toml", "path to config file")
+	configPath = flag.String("config-file", "./config.toml", "path to qmd config file")
 	config     Config
 
 	producer *nsq.Producer
@@ -52,6 +52,7 @@ func main() {
 
 	// Register endpoints
 	rtr := mux.NewRouter()
+	rtr.HandleFunc("/", ServiceRoot).Methods("GET")
 	rtr.HandleFunc("/scripts", GetAllScripts).Methods("GET")
 	rtr.HandleFunc("/scripts", ReloadScripts).Methods("PUT")
 	rtr.HandleFunc("/scripts/{name}", RunScript).Methods("POST")

@@ -23,6 +23,10 @@ type ScriptRequest struct {
 	CallbackURL string            `json:"callback_url"`
 }
 
+func ServiceRoot(w http.ResponseWriter, r *http.Request) {
+	w.Write([]byte("."))
+}
+
 func GetAllScripts(w http.ResponseWriter, r *http.Request) {
 	// Get a list of all the scripts in script folder.
 
