@@ -18,17 +18,18 @@ import (
 type Job struct {
 	ID          int               `json:"id"`
 	Script      string            `json:"script"`
-	Args        []string          `json:"args"`
-	Files       map[string]string `json:"files"`
-	CallbackURL string            `json:"callback_url"`
-	WorkingDir  string            `json:"working_dir"`
-	ScriptDir   string            `json:"script_dir"`
-	StoreDir    string            `json:"store_dir"`
+	Args        []string          `json:"args,omitempty"`
+	Files       map[string]string `json:"files,omitempty"`
+	CallbackURL string            `json:"callback_url,omitempty"`
+	WorkingDir  string            `json:"-"`
+	ScriptDir   string            `json:"-"`
+	StoreDir    string            `json:"-"`
 	Output      string            `json:"output"`
 	ExecLog     string            `json:"exec_log"`
 	Status      string            `json:"status"`
 	StartTime   time.Time         `json:"start_time"`
 	FinishTime  time.Time         `json:"end_time"`
+	Duration    string            `json:"duration"`
 }
 
 func (j *Job) CleanArgs() ([]string, error) {
@@ -134,6 +135,7 @@ func (j *Job) Execute(ch chan error) {
 	log.Printf("Executing command: %s\n", s)
 	out, err := cmd.Output()
 	j.FinishTime = time.Now()
+	j.Duration = j.FinishTime.Sub(j.StartTime).String()
 
 	if err != nil {
 		j.ExecLog = fmt.Sprintf("%s", err)
