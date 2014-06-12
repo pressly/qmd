@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -68,32 +69,47 @@ func NewWorker(c Config) (Worker, error) {
 }
 
 func (w *Worker) LoadWhiteList(path string) error {
-	fmt.Printf("Loading whitelist from %s\n", path)
-
-	file, err := os.Open(path)
-	if err != nil {
-		return err
-	}
-	defer file.Close()
 
 	whiteList := make(map[string]bool)
+	var buf bytes.Buffer
+	buf.WriteString(fmt.Sprintln("Whitelist:"))
 
-	scanner := bufio.NewScanner(file)
-	for scanner.Scan() {
-		whiteList[scanner.Text()] = true
-	}
-	err = scanner.Err()
+	log.Println("Loading scripts in", path)
+
+	var err error
+
+	fileInfo, err := os.Stat(path)
 	if err != nil {
-		log.Println(err)
 		return err
 	}
+	if fileInfo.IsDir() {
+		buf.WriteString(fmt.Sprintln("All"))
+	} else {
+		file, err := os.Open(path)
+		if err != nil {
+			return err
+		}
+		defer file.Close()
 
-	fmt.Println("Whitelist:")
-	for script := range whiteList {
-		fmt.Println("	", script)
+		scanner := bufio.NewScanner(file)
+
+		for scanner.Scan() {
+			whiteList[scanner.Text()] = true
+		}
+		if err != nil {
+			log.Println(err)
+			return err
+		}
+
+		err = scanner.Err()
+
+		for script := range whiteList {
+			buf.WriteString(fmt.Sprintln("	", script))
+		}
 	}
 
 	w.WhiteList = whiteList
+	log.Println(buf.String())
 	return nil
 }
 
@@ -112,7 +128,7 @@ func (w *Worker) JobRequestHandler(m *nsq.Message) error {
 	}
 
 	// Try and run script
-	if w.WhiteList[job.Script] {
+	if len(w.WhiteList) == 0 || w.WhiteList[job.Script] {
 		log.Println("Dequeued request as Job", job.ID)
 
 		resultChan := make(chan error, 1)
