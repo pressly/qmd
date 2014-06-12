@@ -115,8 +115,9 @@ func (w *Worker) JobRequestHandler(m *nsq.Message) error {
 		_, err = job.Execute()
 		if err != nil {
 			job.ExecLog = err.Error()
+		} else {
+			job.Status = STATUS_OK
 		}
-		job.Status = STATUS_OK
 	} else {
 		msg := fmt.Sprintf("%s is not on script whitelist", job.Script)
 		job.ExecLog = msg
