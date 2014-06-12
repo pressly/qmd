@@ -51,7 +51,7 @@ func main() {
 	go worker.Run()
 
 	// Register endpoints
-	rtr := mux.NewRouter()
+	rtr := mux.NewRouter().StrictSlash(true)
 	rtr.HandleFunc("/", ServiceRoot).Methods("GET")
 	rtr.HandleFunc("/", ServiceRoot).Methods("POST") // callback echo
 	rtr.HandleFunc("/scripts", GetAllScripts).Methods("GET")
