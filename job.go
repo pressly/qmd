@@ -11,6 +11,7 @@ import (
 	"os/exec"
 	"path"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -39,6 +40,11 @@ func (j *Job) SaveFiles(dir string) error {
 	var err error
 	var file string
 	for name, data := range j.Files {
+
+		// Clean bad input
+		name = strings.Replace(name, "..", "", -1)
+		name = strings.Replace(name, "/", "", -1)
+
 		file = path.Join(dir, name)
 		log.Printf("Writing %s to disk\n", file)
 		err = ioutil.WriteFile(file, []byte(data), 0644)
