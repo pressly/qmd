@@ -7,7 +7,7 @@ KeepTemp     = false
 [worker]
 Channel      = "worker"
 Throughput   = 2
-ScriptDir    = "./scripts"
+ScriptDir    = "./examples"
 WorkingDir   = "./"
 StoreDir     = "./store"
 WhiteList    = ".whitelist"
