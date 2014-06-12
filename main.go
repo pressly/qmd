@@ -56,6 +56,7 @@ func main() {
 	// Register endpoints
 	rtr := mux.NewRouter()
 	rtr.HandleFunc("/scripts", GetAllScripts).Methods("GET")
+	rtr.HandleFunc("/scripts", ReloadScripts).Methods("PUT")
 	rtr.HandleFunc("/scripts/{name}", RunScript).Methods("POST")
 	rtr.HandleFunc("/scripts/{name}/logs", GetAllLogs).Methods("GET")
 	rtr.HandleFunc("/scripts/{name}/logs/{id}", GetLog).Methods("GET")
@@ -68,21 +69,20 @@ func main() {
 	// Gracefully shutdown all the connections
 	for {
 		select {
-		case <-worker.Consumer.StopChan:
-			fmt.Println("Goodbye")
-			return
 		case <-termChan:
 			fmt.Println("Shutting down producer")
 			producer.Stop()
 
-			fmt.Println("Shutting down worker/consumer")
-			worker.Consumer.Stop()
+			fmt.Println("Shutting down worker consumers")
+			worker.Stop()
 
 			fmt.Println("Closing Redis connections")
 			redisDB.Close()
 
 			fmt.Println("Shutting down server")
 			server.Shutdown <- true
+
+			return
 		}
 	}
 }

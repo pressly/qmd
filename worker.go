@@ -17,13 +17,14 @@ const (
 )
 
 type Worker struct {
-	Consumer   *nsq.Consumer
-	Throughput int
-	QueueAddr  string
-	ScriptDir  string
-	StoreDir   string
-	WorkingDir string
-	WhiteList  map[string]bool
+	Consumer       *nsq.Consumer
+	ReloadConsumer *nsq.Consumer
+	Throughput     int
+	QueueAddr      string
+	ScriptDir      string
+	StoreDir       string
+	WorkingDir     string
+	WhiteList      map[string]bool
 }
 
 func NewWorker(c Config) (Worker, error) {
@@ -36,7 +37,15 @@ func NewWorker(c Config) (Worker, error) {
 		log.Println(err)
 		return worker, err
 	}
+
+	rConsumer, err := nsq.NewConsumer("reload", c.Worker.Channel, nsq.NewConfig())
+	if err != nil {
+		log.Println(err)
+		return worker, err
+	}
+
 	worker.Consumer = consumer
+	worker.ReloadConsumer = rConsumer
 	worker.Throughput = c.Worker.Throughput
 	worker.QueueAddr = c.QueueAddr
 	worker.ScriptDir = c.Worker.ScriptDir
@@ -56,7 +65,7 @@ func NewWorker(c Config) (Worker, error) {
 }
 
 func (w *Worker) LoadWhiteList(path string) error {
-	fmt.Printf("Creating whitelist from %s\n", path)
+	fmt.Printf("Loading whitelist from %s\n", path)
 
 	file, err := os.Open(path)
 	if err != nil {
@@ -78,54 +87,80 @@ func (w *Worker) LoadWhiteList(path string) error {
 
 	fmt.Println("Whitelist:")
 	for script := range whiteList {
-		fmt.Println(script)
+		fmt.Println("	", script)
 	}
 
 	w.WhiteList = whiteList
 	return nil
 }
 
+func (w *Worker) JobRequestHandler(m *nsq.Message) error {
+	// Initialize Job from request
+	var job Job
+	job.Status = STATUS_ERR
+	job.ScriptDir = w.ScriptDir
+	job.WorkingDir = w.WorkingDir
+	job.StoreDir = w.StoreDir
+
+	err := json.Unmarshal(m.Body, &job)
+	if err != nil {
+		log.Println("Invalid JSON request", err)
+		return nil
+	}
+
+	// Try and run script
+	if w.WhiteList[job.Script] {
+		log.Println("Dequeued request as Job", job.ID)
+
+		_, err = job.Execute()
+		if err != nil {
+			job.ExecLog = err.Error()
+		}
+		job.Status = STATUS_OK
+	} else {
+		msg := fmt.Sprintf("%s is not on script whitelist", job.Script)
+		job.ExecLog = msg
+	}
+
+	log.Println(job.ExecLog)
+	job.Log()
+	job.Callback()
+	return nil
+}
+
+func (w *Worker) ReloadRequestHandler(m *nsq.Message) error {
+	whitelist := path.Clean(string(m.Body))
+	err := w.LoadWhiteList(whitelist)
+	if err != nil {
+		log.Println("Failed to reload whitelist from", whitelist)
+		return err
+	}
+	log.Println("Reloaded whitelist from", whitelist)
+	return nil
+}
+
 func (w *Worker) Run() {
 	// Set the message handler.
-	w.Consumer.SetHandler(nsq.HandlerFunc(func(m *nsq.Message) error {
+	w.Consumer.SetHandler(nsq.HandlerFunc(w.JobRequestHandler))
+	w.ReloadConsumer.SetHandler(nsq.HandlerFunc(w.ReloadRequestHandler))
 
-		// Initialize Job from request
-		var job Job
-		job.Status = STATUS_ERR
-		job.ScriptDir = w.ScriptDir
-		job.WorkingDir = w.WorkingDir
-		job.StoreDir = w.StoreDir
-
-		err := json.Unmarshal(m.Body, &job)
-		if err != nil {
-			log.Println("Invalid JSON request", err)
-			return nil
-		}
-
-		// Try and run script
-		if w.WhiteList[job.Script] {
-			log.Println("Dequeued request as Job", job.ID)
-
-			_, err = job.Execute()
-			if err != nil {
-				job.ExecLog = err.Error()
-			}
-			job.Status = STATUS_OK
-		} else {
-			msg := fmt.Sprintf("%s is not on script whitelist", job.Script)
-			job.ExecLog = msg
-		}
-
-		log.Println(job.ExecLog)
-		job.Log()
-		job.Callback()
-		return nil
-	}))
+	var err error
 
 	// Connect the queue.
 	fmt.Println("Connecting to", w.QueueAddr)
-	err := w.Consumer.ConnectToNSQD(w.QueueAddr)
+	err = w.Consumer.ConnectToNSQD(w.QueueAddr)
 	if err != nil {
 		log.Println(err)
 	}
+
+	err = w.ReloadConsumer.ConnectToNSQD(w.QueueAddr)
+	if err != nil {
+		log.Println(err)
+	}
+}
+
+func (w *Worker) Stop() {
+	w.Consumer.Stop()
+	w.ReloadConsumer.Stop()
+	return
 }

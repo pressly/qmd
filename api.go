@@ -26,7 +26,7 @@ type ScriptRequest struct {
 func GetAllScripts(w http.ResponseWriter, r *http.Request) {
 	// Get a list of all the scripts in script folder.
 
-	log.Printf("Received GET %s\n", r.URL)
+	log.Println("Received GET", r.URL)
 
 	// Open and parse whitelist
 	p := path.Join(config.Worker.ScriptDir, config.Worker.WhiteList)
@@ -53,10 +53,32 @@ func GetAllScripts(w http.ResponseWriter, r *http.Request) {
 	w.Write(buf.Bytes())
 }
 
+func ReloadScripts(w http.ResponseWriter, r *http.Request) {
+	// Reload the whitelist of scripts.
+
+	log.Println("Received PUT", r.URL)
+
+	p := path.Join(config.Worker.ScriptDir, config.Worker.WhiteList)
+
+	doneChan := make(chan *nsq.ProducerTransaction)
+	err := producer.PublishAsync("reload", []byte(p), doneChan)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	<-doneChan
+
+	var buf bytes.Buffer
+	buf.WriteString("Reload request sent")
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(buf.Bytes())
+}
+
 func RunScript(w http.ResponseWriter, r *http.Request) {
 	// Send details to queue for execution.
 
-	log.Printf("Received POST %s\n", r.URL)
+	log.Println("Received POST", r.URL)
 
 	// Parse the request
 	body, err := ioutil.ReadAll(r.Body)
@@ -89,7 +111,7 @@ func RunScript(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	<-doneChan
-	log.Printf("Request queued as %s\n", sr.ID)
+	log.Println("Request queued as", sr.ID)
 
 	w.Header().Set("Content-Type", "application/json")
 	w.Write(data)
@@ -98,7 +120,7 @@ func RunScript(w http.ResponseWriter, r *http.Request) {
 func GetAllLogs(w http.ResponseWriter, r *http.Request) {
 	// Retrieve all logs for a specific script.
 
-	log.Printf("Received GET %s\n", r.URL)
+	log.Println("Received GET", r.URL)
 
 	conn := redisDB.Get()
 	defer conn.Close()
@@ -131,7 +153,7 @@ func GetAllLogs(w http.ResponseWriter, r *http.Request) {
 func GetLog(w http.ResponseWriter, r *http.Request) {
 	// Retrieve a specific log of a specific script.
 
-	log.Printf("Received GET %s\n", r.URL)
+	log.Println("Received GET", r.URL)
 
 	conn := redisDB.Get()
 	defer conn.Close()
