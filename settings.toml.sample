@@ -2,10 +2,12 @@ Topic        = "job"
 ListenOnAddr = "0.0.0.0:8080"
 QueueAddr    = "0.0.0.0:4150"
 RedisAddr    = ":6379"
+KeepTemp = true
 
 [worker]
 Channel    = "qmd"
 Throughput = 20
-ScriptDir  = "/home/vagrant/qmd/scripts"
+ScriptDir  = "./scripts"
+WorkingDir = "./"
+StoreDir = "./store"
 WhiteList = "whitelist.toml"
-WorkingDir = "/home/vagrant/lol"

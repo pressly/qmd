@@ -23,5 +23,6 @@ if [ -n "$force_err" ]; then
 fi
 
 echo "Hello $username!"
-echo "<some return value.. for $username>" > $QMD_OUT
+echo "<some return value.. for $username>\n\n\n" > $QMD_OUT
+cat "$QMD_TMP/test.txt" >> $QMD_OUT
 exit 0
