@@ -24,6 +24,12 @@ type ScriptRequest struct {
 }
 
 func ServiceRoot(w http.ResponseWriter, r *http.Request) {
+	if r.Method == "POST" {
+		body, err := ioutil.ReadAll(r.Body)
+		if err == nil {
+			log.Printf("Callback: %s\n", body)
+		}
+	}
 	w.Write([]byte("."))
 }
 

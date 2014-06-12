@@ -53,6 +53,7 @@ func main() {
 	// Register endpoints
 	rtr := mux.NewRouter()
 	rtr.HandleFunc("/", ServiceRoot).Methods("GET")
+	rtr.HandleFunc("/", ServiceRoot).Methods("POST") // callback echo
 	rtr.HandleFunc("/scripts", GetAllScripts).Methods("GET")
 	rtr.HandleFunc("/scripts", ReloadScripts).Methods("PUT")
 	rtr.HandleFunc("/scripts/{name}", RunScript).Methods("POST")
