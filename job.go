@@ -117,6 +117,7 @@ func (j *Job) Execute(ch chan error) {
 	tmpPath := path.Join(j.WorkingDir, "tmp", strconv.Itoa(j.ID))
 	os.MkdirAll(tmpPath, 0777)
 	os.Setenv("QMD_TMP", tmpPath)
+	defer j.RemoveTmpdir(tmpPath)
 
 	err = j.SaveFiles(tmpPath)
 	if err != nil {
@@ -151,14 +152,17 @@ func (j *Job) Execute(ch chan error) {
 
 	j.ExecLog = string(out)
 
+	ch <- err
+	return
+}
+
+func (j *Job) RemoveTmpdir(tmpPath string) {
 	if !config.KeepTemp {
 		log.Println("Deleting all files and dirs in", tmpPath)
-		err = os.RemoveAll(tmpPath)
+		err := os.RemoveAll(tmpPath)
 		if err != nil {
 			log.Println("Failed to delete all files and dirs in", tmpPath)
 			log.Println(err)
 		}
 	}
-	ch <- err
-	return
 }
