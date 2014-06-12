@@ -4,11 +4,13 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
 	"path"
+	"strings"
 
 	"github.com/bitly/go-nsq"
 	"github.com/garyburd/redigo/redis"
@@ -47,16 +49,15 @@ func GetAllScripts(w http.ResponseWriter, r *http.Request) {
 	}
 	defer file.Close()
 
-	var buf bytes.Buffer
-	buf.WriteString("[")
-
 	scanner := bufio.NewScanner(file)
 	scanner.Scan()
-	buf.WriteString(scanner.Text())
+	list := make([]string, 0)
 	for scanner.Scan() {
-		buf.WriteString(", ")
-		buf.WriteString(scanner.Text())
+		list = append(list, fmt.Sprintf("\"%s\"", scanner.Text()))
 	}
+	var buf bytes.Buffer
+	buf.WriteString("[")
+	buf.WriteString(strings.Join(list, ", "))
 	buf.WriteString("]")
 
 	w.Header().Set("Content-Type", "application/json")
