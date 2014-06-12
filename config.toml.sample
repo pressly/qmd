@@ -1,13 +1,13 @@
-Topic        = "job"
+Topic        = "qmd"
 ListenOnAddr = "0.0.0.0:8080"
 QueueAddr    = "0.0.0.0:4150"
 RedisAddr    = ":6379"
-KeepTemp = true
+KeepTemp     = false
 
 [worker]
-Channel    = "qmd"
-Throughput = 2
-ScriptDir  = "./scripts"
-WorkingDir = "./"
-StoreDir = "./store"
-WhiteList = "whitelist.toml"
+Channel      = "worker"
+Throughput   = 2
+ScriptDir    = "./scripts"
+WorkingDir   = "./"
+StoreDir     = "./store"
+WhiteList    = ".whitelist"
