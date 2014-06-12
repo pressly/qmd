@@ -41,9 +41,6 @@ func main() {
 	fmt.Println("Creating Redis connection pool")
 	redisDB = newPool(config.RedisAddr)
 
-	termChan := make(chan os.Signal, 1)
-	signal.Notify(termChan, syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
-
 	// Setup and start worker.
 	fmt.Println("Creating worker")
 	worker, err := NewWorker(config)
@@ -66,6 +63,9 @@ func main() {
 	fmt.Printf("Listening on %s\n", config.ListenOnAddr)
 	go server.ListenAndServe(config.ListenOnAddr, rtr)
 
+	termChan := make(chan os.Signal, 1)
+	signal.Notify(termChan, syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
+
 	// Gracefully shutdown all the connections
 	for {
 		select {
@@ -82,6 +82,7 @@ func main() {
 			fmt.Println("Shutting down server")
 			server.Shutdown <- true
 
+			fmt.Println("Goodbye!\n")
 			return
 		}
 	}

@@ -30,9 +30,17 @@ type Worker struct {
 func NewWorker(c Config) (Worker, error) {
 	fmt.Printf("Creating consumer with topic: %s and channel: %s.\n", c.Topic, c.Worker.Channel)
 
+	var err error
 	var worker Worker
+	worker.Throughput = c.Worker.Throughput
+	worker.QueueAddr = c.QueueAddr
+	worker.ScriptDir = c.Worker.ScriptDir
+	worker.StoreDir = c.Worker.StoreDir
+	worker.WorkingDir = c.Worker.WorkingDir
 
-	consumer, err := nsq.NewConsumer(c.Topic, c.Worker.Channel, nsq.NewConfig())
+	conf := nsq.NewConfig()
+	conf.Set("max_in_flight", worker.Throughput)
+	consumer, err := nsq.NewConsumer(c.Topic, c.Worker.Channel, conf)
 	if err != nil {
 		log.Println(err)
 		return worker, err
@@ -46,11 +54,6 @@ func NewWorker(c Config) (Worker, error) {
 
 	worker.Consumer = consumer
 	worker.ReloadConsumer = rConsumer
-	worker.Throughput = c.Worker.Throughput
-	worker.QueueAddr = c.QueueAddr
-	worker.ScriptDir = c.Worker.ScriptDir
-	worker.StoreDir = c.Worker.StoreDir
-	worker.WorkingDir = c.Worker.WorkingDir
 
 	// Generate whitelist of allowed scripts.
 	path := path.Join(config.Worker.ScriptDir, config.Worker.WhiteList)
@@ -112,7 +115,9 @@ func (w *Worker) JobRequestHandler(m *nsq.Message) error {
 	if w.WhiteList[job.Script] {
 		log.Println("Dequeued request as Job", job.ID)
 
-		_, err = job.Execute()
+		resultChan := make(chan error, 1)
+		go job.Execute(resultChan)
+		err := <-resultChan
 		if err != nil {
 			job.ExecLog = err.Error()
 		} else {
@@ -142,7 +147,7 @@ func (w *Worker) ReloadRequestHandler(m *nsq.Message) error {
 
 func (w *Worker) Run() {
 	// Set the message handler.
-	w.Consumer.SetHandler(nsq.HandlerFunc(w.JobRequestHandler))
+	w.Consumer.SetConcurrentHandlers(nsq.HandlerFunc(w.JobRequestHandler), w.Throughput)
 	w.ReloadConsumer.SetHandler(nsq.HandlerFunc(w.ReloadRequestHandler))
 
 	var err error

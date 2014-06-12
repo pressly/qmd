@@ -98,8 +98,7 @@ func (j *Job) Callback() error {
 	return nil
 }
 
-func (j *Job) Execute() ([]byte, error) {
-	fmt.Println(j.Files)
+func (j *Job) Execute(ch chan error) {
 	j.StartTime = time.Now()
 
 	// Intialize script path and arguments
@@ -107,7 +106,8 @@ func (j *Job) Execute() ([]byte, error) {
 	args, err := j.CleanArgs()
 	if err != nil {
 		j.ExecLog = fmt.Sprintf("%s", err)
-		return nil, err
+		ch <- err
+		return
 	}
 
 	// Set environment variables
@@ -120,7 +120,8 @@ func (j *Job) Execute() ([]byte, error) {
 	err = j.SaveFiles(tmpPath)
 	if err != nil {
 		j.ExecLog = fmt.Sprintf("%s", err)
-		return nil, err
+		ch <- err
+		return
 	}
 
 	outPath := path.Join(tmpPath, "qmd.out")
@@ -136,15 +137,16 @@ func (j *Job) Execute() ([]byte, error) {
 
 	if err != nil {
 		j.ExecLog = fmt.Sprintf("%s", err)
-		return nil, err
+		ch <- err
+		return
 	}
 
 	data, err := ioutil.ReadFile(outPath)
-	if err != nil {
-		log.Println(err)
+	if os.IsNotExist(err) {
+		j.Output = string(data)
+		err = nil
 	}
 
-	j.Output = string(data)
 	j.ExecLog = string(out)
 
 	if !config.KeepTemp {
@@ -155,5 +157,6 @@ func (j *Job) Execute() ([]byte, error) {
 			log.Println(err)
 		}
 	}
-	return out, err
+	ch <- err
+	return
 }

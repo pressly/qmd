@@ -27,3 +27,4 @@ Vagrantfile
 .vagrant
 qmd
 settings.toml
+tmp

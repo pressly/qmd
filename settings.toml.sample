@@ -6,7 +6,7 @@ KeepTemp = true
 
 [worker]
 Channel    = "qmd"
-Throughput = 20
+Throughput = 2
 ScriptDir  = "./scripts"
 WorkingDir = "./"
 StoreDir = "./store"
