@@ -6,7 +6,7 @@ redisAddr    = ":6379"
 [auth]
 enabled      = true
 username     = "qmd"
-password     = "password"
+password     = "pass"
 
 [logging]
 logLevel     = "INFO" # DEBUG > INFO > NOTICE > WARNING > ERROR > CRITICAL
