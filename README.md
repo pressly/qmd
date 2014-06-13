@@ -162,11 +162,16 @@ internal service. Even then authentication is required and the daemon should be 
 in normal user mode (duh).
 
 
-# TODO
+# Ideas
 
 1. Embed nsqd / nsqlookupd / the admin ui. This way, there isn't a need to run nsq separately.
 
 2. Related to #1, Add QmdClusterLookup config addr (which is nsqlookupd)
+
+
+# TODO
+
+1. Implement metric tracking. Possible with go-metrics and Graphite?
 
 
 # Authors / License
