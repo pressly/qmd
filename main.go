@@ -54,6 +54,7 @@ func main() {
 
 	// Register middleware
 	w.Use(middleware.Logger)
+	w.Use(BasicAuth)
 
 	// Register endpoints
 	w.Get("/", ServiceRoot)

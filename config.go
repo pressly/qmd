@@ -5,6 +5,8 @@ type Config struct {
 	ListenOnAddr string
 	QueueAddr    string
 	RedisAddr    string
+	Username     string
+	Password     string
 	Worker       worker
 }
 
