@@ -51,8 +51,11 @@ func main() {
 
 	// Http server
 	w := web.New()
+
+	// Register middleware
 	w.Use(middleware.Logger)
 
+	// Register endpoints
 	w.Get("/", ServiceRoot)
 	w.Post("/", ServiceRoot)
 	w.Get("/scripts", GetAllScripts)
@@ -81,10 +84,3 @@ func main() {
 	}
 	graceful.Wait()
 }
-
-// func ExampleMiddleware(h http.Handler) http.Handler {
-// 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-// 		log.Println("Request yooooooo")
-// 		h.ServeHTTP(w, r)
-// 	})
-// }
