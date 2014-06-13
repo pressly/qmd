@@ -38,3 +38,11 @@ func decodeAuth(auth string) (string, error) {
 	pass, err := base64.StdEncoding.DecodeString(auth)
 	return string(pass), err
 }
+
+func AllowSlash(c *web.C, h http.Handler) http.Handler {
+	fn := func(w http.ResponseWriter, r *http.Request) {
+		r.URL.Path = strings.TrimSuffix(r.URL.Path, "/")
+		h.ServeHTTP(w, r)
+	}
+	return http.HandlerFunc(fn)
+}
