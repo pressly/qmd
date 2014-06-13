@@ -10,24 +10,25 @@ import (
 
 func BasicAuth(c *web.C, h http.Handler) http.Handler {
 	fn := func(w http.ResponseWriter, r *http.Request) {
-		auth := r.Header.Get("Authorization")
-		if !strings.HasPrefix(auth, "Basic ") {
-			pleaseAuth(w)
-			return
-		}
+		if config.Auth.Enabled {
+			auth := r.Header.Get("Authorization")
+			if !strings.HasPrefix(auth, "Basic ") {
+				unauthorized(w)
+				return
+			}
 
-		pass, err := decodeAuth(auth[6:])
-
-		if err != nil || pass != config.auth.authString {
-			pleaseAuth(w)
-			return
+			pass, err := decodeAuth(auth[6:])
+			if err != nil || pass != config.Auth.AuthString {
+				unauthorized(w)
+				return
+			}
 		}
 		h.ServeHTTP(w, r)
 	}
 	return http.HandlerFunc(fn)
 }
 
-func pleaseAuth(w http.ResponseWriter) {
+func unauthorized(w http.ResponseWriter) {
 	w.Header().Set("WWW-Authenticate", `Basic realm="qmd"`)
 	w.WriteHeader(http.StatusUnauthorized)
 	w.Write([]byte("Please authenticate with the proper API user and password!\n"))
