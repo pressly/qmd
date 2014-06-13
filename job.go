@@ -43,7 +43,7 @@ func (j *Job) SaveFiles(dir string) error {
 		name = strings.Replace(name, "/", "", -1)
 
 		file = path.Join(dir, name)
-		log.Debug("Writing %s to disk\n", file)
+		log.Debug("Writing %s to disk", file)
 		err = ioutil.WriteFile(file, []byte(data), 0644)
 		if err != nil {
 			return err
@@ -129,7 +129,7 @@ func (j *Job) Execute(ch chan error) {
 	cmd := exec.Command(s, args...)
 	cmd.Dir = path.Clean(config.Worker.WorkingDir)
 
-	log.Info("Executing command: %s\n", s)
+	log.Info("Executing command: %s", s)
 	out, err := cmd.Output()
 	j.FinishTime = time.Now()
 	j.Duration = j.FinishTime.Sub(j.StartTime).String()
@@ -154,7 +154,7 @@ func (j *Job) Execute(ch chan error) {
 
 func (j *Job) RemoveTmpdir(tmpPath string) {
 	if !config.Worker.KeepTemp {
-		log.Debug("Deleting all files and dirs in", tmpPath)
+		log.Debug("Deleting all files and dirs in %s", tmpPath)
 		err := os.RemoveAll(tmpPath)
 		if err != nil {
 			log.Error("Failed to delete all files and dirs in %s - %s", tmpPath, err)

@@ -2,7 +2,6 @@ package main
 
 import (
 	"flag"
-	"fmt"
 	"syscall"
 
 	"github.com/BurntSushi/toml"
@@ -11,7 +10,6 @@ import (
 	"github.com/op/go-logging"
 	"github.com/zenazn/goji/graceful"
 	"github.com/zenazn/goji/web"
-	"github.com/zenazn/goji/web/middleware"
 )
 
 var (
@@ -41,6 +39,8 @@ func main() {
 		log.Fatal(err)
 	}
 
+	log.Info("=====> [ QMD v%s ] <=====", VERSION)
+
 	// Setup facilities
 	producer = nsq.NewProducer(config.QueueAddr, nsq.NewConfig())
 	redisDB = newRedisPool(config.RedisAddr)
@@ -55,9 +55,9 @@ func main() {
 	// Http server
 	w := web.New()
 
-	w.Use(middleware.Logger)
+	w.Use(RequestLogger)
 	w.Use(BasicAuth)
-	w.Use(AllowSlash)
+	// w.Use(AllowSlash)
 
 	w.Get("/", ServiceRoot)
 	w.Post("/", ServiceRoot)
@@ -69,13 +69,13 @@ func main() {
 
 	// Spin up the server with graceful hooks
 	graceful.PreHook(func() {
-		fmt.Println("Shutting down producer")
+		log.Info("Stopping queue producer")
 		producer.Stop()
 
-		fmt.Println("Shutting down worker consumers")
+		log.Info("Stopping queue workers")
 		worker.Stop()
 
-		fmt.Println("Closing Redis connections")
+		log.Info("Closing redis connections")
 		redisDB.Close()
 	})
 

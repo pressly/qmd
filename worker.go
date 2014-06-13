@@ -24,11 +24,7 @@ type Worker struct {
 	WhiteList      map[string]bool
 }
 
-func NewWorker(c Config) (Worker, error) {
-	fmt.Printf("Creating consumer with topic: %s and channel: %s.\n", c.Topic, c.Worker.Channel)
-
-	var err error
-	var worker Worker
+func NewWorker(c Config) (worker Worker, err error) {
 	worker.Throughput = c.Worker.Throughput
 	worker.QueueAddr = c.QueueAddr
 
@@ -57,26 +53,23 @@ func NewWorker(c Config) (Worker, error) {
 		return worker, err
 	}
 
-	fmt.Printf("Worker connecting to %s and running scripts in %s.\n", c.QueueAddr, c.Worker.WorkingDir)
+	log.Info("Worker connecting to %s and running scripts in %s.\n", c.QueueAddr, c.Worker.WorkingDir)
 	return worker, nil
 }
 
 func (w *Worker) LoadWhiteList(path string) error {
+	log.Debug("Loading scripts in %s", path)
 
-	whiteList := make(map[string]bool)
 	var buf bytes.Buffer
-	buf.WriteString(fmt.Sprintln("Whitelist:"))
-
-	log.Info("Loading scripts in", path)
-
-	var err error
+	whiteList := make(map[string]bool)
+	buf.WriteString(fmt.Sprintf("Whitelist: "))
 
 	fileInfo, err := os.Stat(path)
 	if err != nil {
 		return err
 	}
 	if fileInfo.IsDir() {
-		buf.WriteString(fmt.Sprintln("All"))
+		buf.WriteString(fmt.Sprintf("*"))
 	} else {
 		file, err := os.Open(path)
 		if err != nil {
@@ -97,12 +90,12 @@ func (w *Worker) LoadWhiteList(path string) error {
 		err = scanner.Err()
 
 		for script := range whiteList {
-			buf.WriteString(fmt.Sprintln("	", script))
+			buf.WriteString(fmt.Sprintf("%s ", script))
 		}
 	}
 
 	w.WhiteList = whiteList
-	log.Info(buf.String())
+	log.Debug(buf.String())
 	return nil
 }
 
@@ -113,13 +106,13 @@ func (w *Worker) JobRequestHandler(m *nsq.Message) error {
 
 	err := json.Unmarshal(m.Body, &job)
 	if err != nil {
-		log.Error("Invalid JSON request", err)
+		log.Error("Invalid JSON request: %s", err.Error())
 		return nil
 	}
 
 	// Try and run script
 	if len(w.WhiteList) == 0 || w.WhiteList[job.Script] {
-		log.Info("Dequeued request as Job", job.ID)
+		log.Info("Dequeued request as Job %d", job.ID)
 
 		resultChan := make(chan error, 1)
 		go job.Execute(resultChan)
@@ -141,13 +134,13 @@ func (w *Worker) JobRequestHandler(m *nsq.Message) error {
 }
 
 func (w *Worker) ReloadRequestHandler(m *nsq.Message) error {
-	whitelist := path.Clean(string(m.Body))
-	err := w.LoadWhiteList(whitelist)
+	whitelistPath := path.Clean(string(m.Body))
+	err := w.LoadWhiteList(whitelistPath)
 	if err != nil {
-		log.Error("Failed to reload whitelist from", whitelist)
+		log.Error("Failed to reload whitelist from %s", whitelistPath)
 		return err
 	}
-	log.Info("Reloaded whitelist from", whitelist)
+	log.Info("Reloaded whitelist from %s", whitelistPath)
 	return nil
 }
 
@@ -156,11 +149,8 @@ func (w *Worker) Run() {
 	w.Consumer.SetConcurrentHandlers(nsq.HandlerFunc(w.JobRequestHandler), w.Throughput)
 	w.ReloadConsumer.SetHandler(nsq.HandlerFunc(w.ReloadRequestHandler))
 
-	var err error
-
 	// Connect the queue.
-	fmt.Println("Connecting to", w.QueueAddr)
-	err = w.Consumer.ConnectToNSQD(w.QueueAddr)
+	err := w.Consumer.ConnectToNSQD(w.QueueAddr)
 	if err != nil {
 		log.Error(err.Error())
 	}

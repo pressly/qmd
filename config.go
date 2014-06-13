@@ -43,11 +43,7 @@ type workerConfig struct {
 
 func (c *Config) Setup() error {
 	// Setup logger
-	logLevel, err := logging.LogLevel(config.Logging.LogLevel)
-	if err != nil {
-		return err
-	}
-	logging.SetLevel(logLevel, "qmd")
+	logging.SetFormatter(logging.MustStringFormatter("%{level} %{message}"))
 
 	var logBackends []logging.Backend
 	for _, lb := range config.Logging.LogBackends {
@@ -69,6 +65,12 @@ func (c *Config) Setup() error {
 	if len(logBackends) > 0 {
 		logging.SetBackend(logBackends...)
 	}
+
+	logLevel, err := logging.LogLevel(config.Logging.LogLevel)
+	if err != nil {
+		return err
+	}
+	logging.SetLevel(logLevel, "qmd")
 
 	// Setup auth
 	c.Auth.AuthString = fmt.Sprintf("%s:%s", config.Auth.Username, config.Auth.Password)

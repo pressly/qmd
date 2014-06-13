@@ -29,7 +29,7 @@ func ServiceRoot(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "POST" {
 		body, err := ioutil.ReadAll(r.Body)
 		if err == nil {
-			log.Info("Callback: %s\n", body)
+			log.Info("Callback: %s", body)
 		}
 	}
 	w.Write([]byte("."))
@@ -112,7 +112,7 @@ func RunScript(c web.C, w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	<-doneChan
-	log.Debug("Request queued as", sr.ID)
+	log.Debug("Request queued as %d", sr.ID)
 
 	w.Header().Set("Content-Type", "application/json")
 	w.Write(data)
