@@ -72,7 +72,7 @@ Response (json):
 * `exec_log`: the piped STDOUT and STDERR script execution log
 * `output`: the $QMD_OUT output
 * `start_time`: the time (in local system time) the script began to execute
-* `elapsed_usec`: the amount of time in microseconds to run the script
+* `duration`: the amount of time taken to run the script
 * `status`: the exit status of the script; either OK or ERR
 
 **Example: Enqueue a script to execute in the background and send output to a callback URL**
@@ -86,7 +86,7 @@ POST /scripts/hi.sh
 ```
 {
  "exec_id": 1, "script_id": "hi.sh", "args": ["a", "b"], "callback_url": "http://...", 
- "start_time": "2014-05-25T16:45:49Z", "elapsed_usec": null, "status": null
+ "start_time": "2014-05-25T16:45:49Z", "duration": null, "status": null
 }
 ```
 
@@ -96,7 +96,7 @@ response to `callback_url`:
 ```
 {
  "exec_id": 1, "script_id": "hi.sh", "args": ["a", "b"], "callback_url": "http://...",
- "start_time": "2014-05-25T16:45:49Z", "elapsed_usec": 3000, "status": "OK",
+ "start_time": "2014-05-25T16:45:49Z", "duration": 3000, "status": "OK",
  "output": "some script output a b", "exec_log": "hiii this is part of the exec log"
 }
 ```
@@ -115,7 +115,7 @@ POST /scripts/hi.sh
 ```
 {
  "exec_id": 2, "script_id": "hi.sh", "args": ["a"],
- "start_time": "2014-05-25T16:45:49Z", "elapsed_usec": 10000, "status": "OK",
+ "start_time": "2014-05-25T16:45:49Z", "duration": 10000, "status": "OK",
  "output": "some script output a", "exec_log": "hiii this is part of the exec log"
 }
 ```
@@ -145,12 +145,12 @@ GET /scripts/hi.sh/log
 ```
 [{
  "exec_id": 2, "script_id": "hi.sh", "args": ["a"],
- "start_time": "2014-05-25T16:45:49Z", "elapsed_usec": 10000, "status": "OK",
+ "start_time": "2014-05-25T16:45:49Z", "duration": 10000, "status": "OK",
  "output": "some script output a", "exec_log": "hiii this is part of the exec log"
 },
 {
  "exec_id": 1, "script_id": "hi.sh", "args": ["a", "b"], "callback_url": "http://...",
- "start_time": "2014-05-25T16:45:49Z", "elapsed_usec": 3000, "status": "OK",
+ "start_time": "2014-05-25T16:45:49Z", "duration": 3000, "status": "OK",
  "output": "some script output a b", "exec_log": "hiii this is part of the exec log"
 }]
 ```
