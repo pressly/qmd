@@ -5,7 +5,6 @@ type Config struct {
 	ListenOnAddr string
 	QueueAddr    string
 	RedisAddr    string
-	KeepTemp     bool
 	Worker       worker
 }
 
@@ -16,4 +15,5 @@ type worker struct {
 	WorkingDir string
 	StoreDir   string
 	WhiteList  string
+	KeepTemp   bool
 }

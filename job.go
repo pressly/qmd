@@ -21,9 +21,6 @@ type Job struct {
 	Args        []string          `json:"args,omitempty"`
 	Files       map[string]string `json:"files,omitempty"`
 	CallbackURL string            `json:"callback_url,omitempty"`
-	WorkingDir  string            `json:"-"`
-	ScriptDir   string            `json:"-"`
-	StoreDir    string            `json:"-"`
 	Output      string            `json:"output"`
 	ExecLog     string            `json:"exec_log"`
 	Status      string            `json:"status"`
@@ -103,7 +100,7 @@ func (j *Job) Execute(ch chan error) {
 	j.StartTime = time.Now()
 
 	// Intialize script path and arguments
-	s := path.Join(j.ScriptDir, j.Script)
+	s := path.Join(config.Worker.ScriptDir, j.Script)
 	args, err := j.CleanArgs()
 	if err != nil {
 		j.ExecLog = fmt.Sprintf("%s", err)
@@ -112,9 +109,9 @@ func (j *Job) Execute(ch chan error) {
 	}
 
 	// Set environment variables
-	os.Setenv("QMD_STORE", path.Clean(j.StoreDir))
+	os.Setenv("QMD_STORE", path.Clean(config.Worker.StoreDir))
 
-	tmpPath := path.Join(j.WorkingDir, strconv.Itoa(j.ID))
+	tmpPath := path.Join(config.Worker.WorkingDir, strconv.Itoa(j.ID))
 	os.MkdirAll(tmpPath, 0777)
 	os.Setenv("QMD_TMP", tmpPath)
 	defer j.RemoveTmpdir(tmpPath)
@@ -131,7 +128,7 @@ func (j *Job) Execute(ch chan error) {
 
 	// Setup and execute cmd
 	cmd := exec.Command(s, args...)
-	cmd.Dir = path.Clean(j.WorkingDir)
+	cmd.Dir = path.Clean(config.Worker.WorkingDir)
 
 	log.Printf("Executing command: %s\n", s)
 	out, err := cmd.Output()
@@ -157,7 +154,7 @@ func (j *Job) Execute(ch chan error) {
 }
 
 func (j *Job) RemoveTmpdir(tmpPath string) {
-	if !config.KeepTemp {
+	if !config.Worker.KeepTemp {
 		log.Println("Deleting all files and dirs in", tmpPath)
 		err := os.RemoveAll(tmpPath)
 		if err != nil {

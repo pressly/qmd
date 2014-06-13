@@ -162,19 +162,11 @@ internal service. Even then authentication is required and the daemon should be 
 in normal user mode (duh).
 
 
-# Design thoughts
+# TODO
 
-1. How should we handle retrying of jobs, and when?
+1. Embed nsqd / nsqlookupd / the admin ui. This way, there isn't a need to run nsq separately.
 
-2. How should we handle multiple script requests with the same parameters? ie. an enqueued script 
-   is requested a second time. Consider the desired behaviour and if we need unique-jobs
-
-3. We need a way to persist the script output. Just some simple database.. my suggestion
-   is to use redis. It's fast, we can set key expiry and its lightweight. 
-
-4. Should we add script exec priority? 0, 1, 2, 3 .. etc. any number really.. like a z-order. 
-
-5. TODO: require authentication for web service use via http basic auth
+2. Related to #1, Add QmdClusterLookup config addr (which is nsqlookupd)
 
 
 # Authors / License

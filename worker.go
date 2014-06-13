@@ -22,9 +22,6 @@ type Worker struct {
 	ReloadConsumer *nsq.Consumer
 	Throughput     int
 	QueueAddr      string
-	ScriptDir      string
-	StoreDir       string
-	WorkingDir     string
 	WhiteList      map[string]bool
 }
 
@@ -35,9 +32,6 @@ func NewWorker(c Config) (Worker, error) {
 	var worker Worker
 	worker.Throughput = c.Worker.Throughput
 	worker.QueueAddr = c.QueueAddr
-	worker.ScriptDir = c.Worker.ScriptDir
-	worker.StoreDir = c.Worker.StoreDir
-	worker.WorkingDir = c.Worker.WorkingDir
 
 	conf := nsq.NewConfig()
 	conf.Set("max_in_flight", worker.Throughput)
@@ -117,9 +111,6 @@ func (w *Worker) JobRequestHandler(m *nsq.Message) error {
 	// Initialize Job from request
 	var job Job
 	job.Status = STATUS_ERR
-	job.ScriptDir = w.ScriptDir
-	job.WorkingDir = w.WorkingDir
-	job.StoreDir = w.StoreDir
 
 	err := json.Unmarshal(m.Body, &job)
 	if err != nil {
