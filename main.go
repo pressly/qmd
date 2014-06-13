@@ -4,16 +4,14 @@ import (
 	"flag"
 	"fmt"
 	"log"
-	"os"
-	"os/signal"
 	"syscall"
 
 	"github.com/BurntSushi/toml"
 	"github.com/bitly/go-nsq"
-	"github.com/braintree/manners"
-	"github.com/garyburd/redigo/redis"
+]	"github.com/garyburd/redigo/redis"
 	"github.com/zenazn/goji/web"
 	"github.com/zenazn/goji/web/middleware"
+	"github.com/zenazn/goji/graceful"
 )
 
 var (
@@ -65,34 +63,12 @@ func main() {
 	w.Get("/scripts/:name/logs", GetAllLogs)
 	w.Get("/scripts/:name/logs/:id", GetLog)
 
-	// Create and start server
-	server := manners.NewServer()
-	fmt.Printf("Listening on %s\n", config.ListenOnAddr)
-	go server.ListenAndServe(config.ListenOnAddr, w)
-
-	termChan := make(chan os.Signal, 1)
-	signal.Notify(termChan, syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
-
-	// Gracefully shutdown all the connections
-	for {
-		select {
-		case <-termChan:
-			fmt.Println("Shutting down producer")
-			producer.Stop()
-
-			fmt.Println("Shutting down worker consumers")
-			worker.Stop()
-
-			fmt.Println("Closing Redis connections")
-			redisDB.Close()
-
-			fmt.Println("Shutting down server")
-			server.Shutdown <- true
-
-			fmt.Println("Goodbye!\n")
-			return
-		}
+	err = graceful.ListenAndServe(config.ListenOnAddr, w)
+	if err != nil {
+		log.Fatal(err)
 	}
+	graceful.AddSignal(syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
+	graceful.Wait()
 }
 
 // func ExampleMiddleware(h http.Handler) http.Handler {
