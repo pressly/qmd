@@ -25,13 +25,10 @@ var (
 
 func main() {
 	flag.Parse()
-	fmt.Printf("Using config file from: %s\n", *configPath)
 
-	var err error
-	_, err = toml.DecodeFile(*configPath, &config)
+	_, err := toml.DecodeFile(*configPath, &config)
 	if err != nil {
-		log.Println(err)
-		return
+		log.Fatal(err)
 	}
 
 	fmt.Println("Setting up producer")
@@ -44,8 +41,7 @@ func main() {
 	fmt.Println("Creating worker")
 	worker, err := NewWorker(config)
 	if err != nil {
-		log.Println(err)
-		return
+		log.Fatal(err)
 	}
 	go worker.Run()
 
