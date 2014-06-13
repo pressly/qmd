@@ -4,14 +4,12 @@ import (
 	"flag"
 	"fmt"
 	"log"
-	"os"
-	"os/signal"
 	"syscall"
 
 	"github.com/BurntSushi/toml"
 	"github.com/bitly/go-nsq"
-	"github.com/braintree/manners"
 	"github.com/garyburd/redigo/redis"
+	"github.com/zenazn/goji/graceful"
 	"github.com/zenazn/goji/web"
 	"github.com/zenazn/goji/web/middleware"
 )
@@ -54,9 +52,10 @@ func main() {
 	// Http server
 	w := web.New()
 
-	// w.Use(RequestLogger)
+	// Register middleware
 	w.Use(middleware.Logger)
 
+	// Register endpoints
 	w.Get("/", ServiceRoot)
 	w.Post("/", ServiceRoot)
 	w.Get("/scripts", GetAllScripts)
@@ -65,39 +64,23 @@ func main() {
 	w.Get("/scripts/:name/logs", GetAllLogs)
 	w.Get("/scripts/:name/logs/:id", GetLog)
 
-	// Create and start server
-	server := manners.NewServer()
-	fmt.Printf("Listening on %s\n", config.ListenOnAddr)
-	go server.ListenAndServe(config.ListenOnAddr, w)
+	// Spin up the server with graceful hooks
+	graceful.PreHook(func() {
+		fmt.Println("Shutting down producer")
+		producer.Stop()
 
-	termChan := make(chan os.Signal, 1)
-	signal.Notify(termChan, syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
+		fmt.Println("Shutting down worker consumers")
+		worker.Stop()
 
-	// Gracefully shutdown all the connections
-	for {
-		select {
-		case <-termChan:
-			fmt.Println("Shutting down producer")
-			producer.Stop()
+		fmt.Println("Closing Redis connections")
+		redisDB.Close()
+	})
 
-			fmt.Println("Shutting down worker consumers")
-			worker.Stop()
+	graceful.AddSignal(syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
 
-			fmt.Println("Closing Redis connections")
-			redisDB.Close()
-
-			fmt.Println("Shutting down server")
-			server.Shutdown <- true
-
-			fmt.Println("Goodbye!\n")
-			return
-		}
+	err = graceful.ListenAndServe(config.ListenOnAddr, w)
+	if err != nil {
+		log.Fatal(err)
 	}
+	graceful.Wait()
 }
-
-// func ExampleMiddleware(h http.Handler) http.Handler {
-// 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-// 		log.Println("Request yooooooo")
-// 		h.ServeHTTP(w, r)
-// 	})
-// }
