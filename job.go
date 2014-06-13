@@ -85,7 +85,7 @@ func (j *Job) Callback() error {
 		return err
 	}
 
-	log.Info("Sending response back to %s\n", j.CallbackURL)
+	log.Info("Sending response back to %s", j.CallbackURL)
 	buf := bytes.NewBuffer(data)
 	_, err = http.Post(j.CallbackURL, "application/json", buf)
 	if err != nil {
@@ -129,13 +129,14 @@ func (j *Job) Execute(ch chan error) {
 	cmd := exec.Command(s, args...)
 	cmd.Dir = path.Clean(config.Worker.WorkingDir)
 
-	log.Info("Executing command: %s", s)
+	log.Info("Executing command: %s %s", s, args)
 	out, err := cmd.Output()
 	j.FinishTime = time.Now()
 	j.Duration = j.FinishTime.Sub(j.StartTime).String()
+	j.ExecLog = string(out)
 
 	if err != nil {
-		j.ExecLog = fmt.Sprintf("%s", err)
+		j.ExecLog = fmt.Sprintf("%s\n%s", j.ExecLog, err)
 		ch <- err
 		return
 	}
@@ -145,8 +146,6 @@ func (j *Job) Execute(ch chan error) {
 		j.Output = string(data)
 		err = nil
 	}
-
-	j.ExecLog = string(out)
 
 	ch <- err
 	return
