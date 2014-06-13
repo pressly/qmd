@@ -12,7 +12,7 @@ const (
 	LOGLIMIT    int    = 50
 )
 
-func newPool(server string) *redis.Pool {
+func newRedisPool(server string) *redis.Pool {
 	return &redis.Pool{
 		MaxIdle:     3,
 		IdleTimeout: 240 * time.Second,

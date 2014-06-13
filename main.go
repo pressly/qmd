@@ -23,6 +23,10 @@ var (
 	redisDB  *redis.Pool
 )
 
+const (
+	VERSION = "0.1.0"
+)
+
 func main() {
 	flag.Parse()
 
@@ -35,7 +39,7 @@ func main() {
 	producer = nsq.NewProducer(config.QueueAddr, nsq.NewConfig())
 
 	fmt.Println("Creating Redis connection pool")
-	redisDB = newPool(config.RedisAddr)
+	redisDB = newRedisPool(config.RedisAddr)
 
 	// Setup and start worker.
 	fmt.Println("Creating worker")
