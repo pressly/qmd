@@ -72,8 +72,18 @@ func (c *Config) Setup() error {
 	}
 	logging.SetLevel(logLevel, "qmd")
 
+	// Redirect standard logger
+	stdlog.SetOutput(&logProxyWriter{})
+
 	// Setup auth
 	c.Auth.AuthString = fmt.Sprintf("%s:%s", config.Auth.Username, config.Auth.Password)
 
 	return nil
+}
+
+type logProxyWriter struct{}
+
+func (l *logProxyWriter) Write(p []byte) (n int, err error) {
+	log.Info("%s", p)
+	return len(p), nil
 }

@@ -10,6 +10,7 @@ import (
 	"github.com/op/go-logging"
 	"github.com/zenazn/goji/graceful"
 	"github.com/zenazn/goji/web"
+	"github.com/zenazn/goji/web/middleware"
 )
 
 var (
@@ -55,7 +56,8 @@ func main() {
 	// Http server
 	w := web.New()
 
-	w.Use(RequestLogger)
+	w.Use(middleware.Logger)
+	w.Use(middleware.Recoverer)
 	w.Use(BasicAuth)
 	w.Use(AllowSlash)
 

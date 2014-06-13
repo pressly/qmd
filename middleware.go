@@ -8,14 +8,6 @@ import (
 	"github.com/zenazn/goji/web"
 )
 
-func RequestLogger(c *web.C, h http.Handler) http.Handler {
-	fn := func(w http.ResponseWriter, r *http.Request) {
-		log.Info("sup...")
-		h.ServeHTTP(w, r)
-	}
-	return http.HandlerFunc(fn)
-}
-
 func BasicAuth(c *web.C, h http.Handler) http.Handler {
 	fn := func(w http.ResponseWriter, r *http.Request) {
 		if config.Auth.Enabled {
