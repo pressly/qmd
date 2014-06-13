@@ -111,7 +111,7 @@ func (j *Job) Execute(ch chan error) {
 	os.Setenv("QMD_STORE", path.Clean(config.Worker.StoreDir))
 
 	tmpPath := path.Join(config.Worker.WorkingDir, strconv.Itoa(j.ID))
-	os.MkdirAll(tmpPath, 0777)
+	os.MkdirAll(tmpPath, 0775)
 	os.Setenv("QMD_TMP", tmpPath)
 	defer j.RemoveTmpdir(tmpPath)
 
