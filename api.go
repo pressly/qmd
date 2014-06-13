@@ -12,7 +12,7 @@ import (
 
 	"github.com/bitly/go-nsq"
 	"github.com/garyburd/redigo/redis"
-	"github.com/gorilla/mux"
+	"github.com/zenazn/goji/web"
 )
 
 type ScriptRequest struct {
@@ -85,7 +85,7 @@ func ReloadScripts(w http.ResponseWriter, r *http.Request) {
 	w.Write(buf.Bytes())
 }
 
-func RunScript(w http.ResponseWriter, r *http.Request) {
+func RunScript(c web.C, w http.ResponseWriter, r *http.Request) {
 	// Send details to queue for execution.
 
 	log.Println("Received POST", r.URL)
@@ -105,9 +105,7 @@ func RunScript(w http.ResponseWriter, r *http.Request) {
 		log.Println(err)
 	}
 	sr.ID = id
-
-	vars := mux.Vars(r)
-	sr.Script = vars["name"]
+	sr.Script = c.URLParams["name"]
 
 	// Queue up the request
 	doneChan := make(chan *nsq.ProducerTransaction)
@@ -127,7 +125,7 @@ func RunScript(w http.ResponseWriter, r *http.Request) {
 	w.Write(data)
 }
 
-func GetAllLogs(w http.ResponseWriter, r *http.Request) {
+func GetAllLogs(c web.C, w http.ResponseWriter, r *http.Request) {
 	// Retrieve all logs for a specific script.
 
 	log.Println("Received GET", r.URL)
@@ -135,10 +133,8 @@ func GetAllLogs(w http.ResponseWriter, r *http.Request) {
 	conn := redisDB.Get()
 	defer conn.Close()
 
-	params := mux.Vars(r)
-
 	// LRANGE returns an array of json strings
-	reply, err := redis.Strings(conn.Do("ZRANGE", params["name"], 0, -1))
+	reply, err := redis.Strings(conn.Do("ZRANGE", c.URLParams["name"], 0, -1))
 	if err != nil {
 		log.Println(err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -160,7 +156,7 @@ func GetAllLogs(w http.ResponseWriter, r *http.Request) {
 	w.Write(buf.Bytes())
 }
 
-func GetLog(w http.ResponseWriter, r *http.Request) {
+func GetLog(c web.C, w http.ResponseWriter, r *http.Request) {
 	// Retrieve a specific log of a specific script.
 
 	log.Println("Received GET", r.URL)
@@ -168,9 +164,8 @@ func GetLog(w http.ResponseWriter, r *http.Request) {
 	conn := redisDB.Get()
 	defer conn.Close()
 
-	params := mux.Vars(r)
-	script := params["name"]
-	id := params["id"]
+	script := c.URLParams["name"]
+	id := c.URLParams["id"]
 
 	reply, err := redis.Strings(conn.Do("ZRANGEBYSCORE", script, id, id))
 	if err != nil {
