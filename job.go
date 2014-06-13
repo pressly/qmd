@@ -128,12 +128,16 @@ func (j *Job) Execute(ch chan error) {
 	// Setup and execute cmd
 	cmd := exec.Command(s, args...)
 	cmd.Dir = path.Clean(config.Worker.WorkingDir)
+	cmdOut := bytes.NewBuffer(nil)
+	cmd.Stdout = cmdOut
+	cmd.Stderr = cmdOut
 
 	log.Info("Executing command: %s %s", s, args)
-	out, err := cmd.Output()
+	err = cmd.Run()
+
 	j.FinishTime = time.Now()
 	j.Duration = j.FinishTime.Sub(j.StartTime).String()
-	j.ExecLog = string(out)
+	j.ExecLog = fmt.Sprintf("%s", string(cmdOut.Bytes()))
 
 	if err != nil {
 		j.ExecLog = fmt.Sprintf("%s\n%s", j.ExecLog, err)

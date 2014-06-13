@@ -118,7 +118,7 @@ func (w *Worker) JobRequestHandler(m *nsq.Message) error {
 		go job.Execute(resultChan)
 		err := <-resultChan
 		if err != nil {
-			job.ExecLog = err.Error()
+			job.Status = STATUS_ERR
 		} else {
 			job.Status = STATUS_OK
 		}
