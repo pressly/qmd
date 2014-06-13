@@ -18,9 +18,10 @@ var (
 	configPath = flag.String("config-file", "./config.toml", "path to qmd config file")
 	config     Config
 
-	producer *nsq.Producer
-	consumer *nsq.Consumer
-	redisDB  *redis.Pool
+	authString string
+	producer   *nsq.Producer
+	consumer   *nsq.Consumer
+	redisDB    *redis.Pool
 )
 
 const (
@@ -34,6 +35,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	authString = fmt.Sprintf("%s:%s", config.Username, config.Password)
 
 	fmt.Println("Setting up producer")
 	producer = nsq.NewProducer(config.QueueAddr, nsq.NewConfig())

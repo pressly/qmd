@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/base64"
-	"fmt"
 	"net/http"
 	"strings"
 
@@ -19,7 +18,7 @@ func BasicAuth(c *web.C, h http.Handler) http.Handler {
 
 		pass, err := decodeAuth(auth[6:])
 
-		if err != nil || pass != fmt.Sprintf("%s:%s", config.Username, config.Password) {
+		if err != nil || pass != authString {
 			pleaseAuth(w)
 			return
 		}
