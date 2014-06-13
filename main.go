@@ -36,7 +36,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	err = config.setup()
+	err = config.Setup()
 	if err != nil {
 		log.Fatal(err)
 	}

@@ -7,8 +7,8 @@ type Config struct {
 	ListenOnAddr string
 	QueueAddr    string
 	RedisAddr    string
-	auth         authConfig    `toml:"auth"`
-	logging      loggingConfig `toml:"logging"`
+	Auth         authConfig    `toml:"auth"`
+	Logging      loggingConfig `toml:"logging"`
 	Worker       workerConfig  `toml:"worker"`
 }
 
@@ -16,12 +16,12 @@ type authConfig struct {
 	Enabled    bool
 	Username   string
 	Password   string
-	authString string
+	AuthString string
 }
 
 type loggingConfig struct {
 	LogLevel    string
-	LogBackends map[string]string
+	LogBackends []string
 }
 
 type workerConfig struct {
@@ -34,12 +34,12 @@ type workerConfig struct {
 	KeepTemp   bool
 }
 
-func (c *Config) setup() (err error) {
+func (c *Config) Setup() (err error) {
 	// Setup auth
-	c.auth.authString = fmt.Sprintf("%s:%s", config.auth.Username, config.auth.Password)
+	c.Auth.AuthString = fmt.Sprintf("%s:%s", config.Auth.Username, config.Auth.Password)
 
 	// Setup logger
-	log.Info("woooot %s", c.logging.LogLevel)
+	log.Info("woooot %s", c.Logging.LogLevel)
 
 	return
 }
