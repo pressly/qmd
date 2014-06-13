@@ -134,9 +134,10 @@ func GetAllLogs(c web.C, w http.ResponseWriter, r *http.Request) {
 	var buf bytes.Buffer
 	buf.WriteString("[")
 
-	if len(reply) > 0 {
-		buf.WriteString(reply[0])
-		for i := 1; i < len(reply); i++ {
+	length := len(reply)
+	if length > 0 {
+		buf.WriteString(reply[length-1])
+		for i := length - 2; i > 0; i-- {
 			buf.WriteString(", ")
 			buf.WriteString(reply[i])
 		}
