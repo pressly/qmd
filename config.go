@@ -7,10 +7,20 @@ type Config struct {
 	RedisAddr    string
 	Username     string
 	Password     string
-	Worker       worker
+	logging      loggingConfig `toml:"logging"`
+	Worker       workerConfig  `toml:"worker"`
 }
 
-type worker struct {
+type loggingConfig struct {
+	LogLevel    string
+	LogBackends map[string]string
+}
+
+func (l *loggingConfig) setup() {
+	log.Info("yes %s", l.LogLevel)
+}
+
+type workerConfig struct {
 	Channel    string
 	Throughput int
 	ScriptDir  string

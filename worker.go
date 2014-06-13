@@ -5,7 +5,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"log"
 	"os"
 	"path"
 
@@ -37,13 +36,13 @@ func NewWorker(c Config) (Worker, error) {
 	conf.Set("max_in_flight", worker.Throughput)
 	consumer, err := nsq.NewConsumer(c.Topic, c.Worker.Channel, conf)
 	if err != nil {
-		log.Println(err)
+		log.Error(err.Error())
 		return worker, err
 	}
 
 	rConsumer, err := nsq.NewConsumer("reload", c.Worker.Channel, nsq.NewConfig())
 	if err != nil {
-		log.Println(err)
+		log.Error(err.Error())
 		return worker, err
 	}
 
@@ -54,7 +53,7 @@ func NewWorker(c Config) (Worker, error) {
 	path := path.Join(config.Worker.ScriptDir, config.Worker.WhiteList)
 	err = worker.LoadWhiteList(path)
 	if err != nil {
-		log.Println(err)
+		log.Error(err.Error())
 		return worker, err
 	}
 
@@ -68,7 +67,7 @@ func (w *Worker) LoadWhiteList(path string) error {
 	var buf bytes.Buffer
 	buf.WriteString(fmt.Sprintln("Whitelist:"))
 
-	log.Println("Loading scripts in", path)
+	log.Info("Loading scripts in", path)
 
 	var err error
 
@@ -91,7 +90,7 @@ func (w *Worker) LoadWhiteList(path string) error {
 			whiteList[scanner.Text()] = true
 		}
 		if err != nil {
-			log.Println(err)
+			log.Error(err.Error())
 			return err
 		}
 
@@ -103,7 +102,7 @@ func (w *Worker) LoadWhiteList(path string) error {
 	}
 
 	w.WhiteList = whiteList
-	log.Println(buf.String())
+	log.Info(buf.String())
 	return nil
 }
 
@@ -114,13 +113,13 @@ func (w *Worker) JobRequestHandler(m *nsq.Message) error {
 
 	err := json.Unmarshal(m.Body, &job)
 	if err != nil {
-		log.Println("Invalid JSON request", err)
+		log.Error("Invalid JSON request", err)
 		return nil
 	}
 
 	// Try and run script
 	if len(w.WhiteList) == 0 || w.WhiteList[job.Script] {
-		log.Println("Dequeued request as Job", job.ID)
+		log.Info("Dequeued request as Job", job.ID)
 
 		resultChan := make(chan error, 1)
 		go job.Execute(resultChan)
@@ -135,7 +134,7 @@ func (w *Worker) JobRequestHandler(m *nsq.Message) error {
 		job.ExecLog = msg
 	}
 
-	log.Println(job.ExecLog)
+	log.Info(job.ExecLog)
 	job.Log()
 	job.Callback()
 	return nil
@@ -145,10 +144,10 @@ func (w *Worker) ReloadRequestHandler(m *nsq.Message) error {
 	whitelist := path.Clean(string(m.Body))
 	err := w.LoadWhiteList(whitelist)
 	if err != nil {
-		log.Println("Failed to reload whitelist from", whitelist)
+		log.Error("Failed to reload whitelist from", whitelist)
 		return err
 	}
-	log.Println("Reloaded whitelist from", whitelist)
+	log.Info("Reloaded whitelist from", whitelist)
 	return nil
 }
 
@@ -163,12 +162,12 @@ func (w *Worker) Run() {
 	fmt.Println("Connecting to", w.QueueAddr)
 	err = w.Consumer.ConnectToNSQD(w.QueueAddr)
 	if err != nil {
-		log.Println(err)
+		log.Error(err.Error())
 	}
 
 	err = w.ReloadConsumer.ConnectToNSQD(w.QueueAddr)
 	if err != nil {
-		log.Println(err)
+		log.Error(err.Error())
 	}
 }
 

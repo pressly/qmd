@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"os"
 	"os/exec"
@@ -44,7 +43,7 @@ func (j *Job) SaveFiles(dir string) error {
 		name = strings.Replace(name, "/", "", -1)
 
 		file = path.Join(dir, name)
-		log.Printf("Writing %s to disk\n", file)
+		log.Debug("Writing %s to disk\n", file)
 		err = ioutil.WriteFile(file, []byte(data), 0644)
 		if err != nil {
 			return err
@@ -59,21 +58,21 @@ func (j *Job) Log() error {
 
 	data, err := json.Marshal(j)
 	if err != nil {
-		log.Println(err)
+		log.Error(err.Error())
 		return err
 	}
 
-	log.Printf("Adding job %d to log for %s to Redis\n", j.ID, j.Script)
+	log.Debug("Adding job %d to log for %s to Redis\n", j.ID, j.Script)
 	_, err = conn.Do("ZADD", j.Script, j.ID, data)
 	if err != nil {
-		log.Println(err)
+		log.Error(err.Error())
 		return err
 	}
 
-	log.Printf("Trimming log for %s to the %d most recent\n", j.Script, LOGLIMIT)
+	log.Debug("Trimming log for %s to the %d most recent\n", j.Script, LOGLIMIT)
 	_, err = conn.Do("ZREMRANGEBYRANK", j.Script, 0, -LOGLIMIT-1)
 	if err != nil {
-		log.Println(err)
+		log.Error(err.Error())
 		return err
 	}
 	return nil
@@ -82,15 +81,15 @@ func (j *Job) Log() error {
 func (j *Job) Callback() error {
 	data, err := json.Marshal(j)
 	if err != nil {
-		log.Println(err)
+		log.Error(err.Error())
 		return err
 	}
 
-	log.Printf("Sending status back to %s\n", j.CallbackURL)
+	log.Info("Sending response back to %s\n", j.CallbackURL)
 	buf := bytes.NewBuffer(data)
 	_, err = http.Post(j.CallbackURL, "application/json", buf)
 	if err != nil {
-		log.Println(err)
+		log.Error(err.Error())
 		return err
 	}
 	return nil
@@ -130,7 +129,7 @@ func (j *Job) Execute(ch chan error) {
 	cmd := exec.Command(s, args...)
 	cmd.Dir = path.Clean(config.Worker.WorkingDir)
 
-	log.Printf("Executing command: %s\n", s)
+	log.Info("Executing command: %s\n", s)
 	out, err := cmd.Output()
 	j.FinishTime = time.Now()
 	j.Duration = j.FinishTime.Sub(j.StartTime).String()
@@ -155,11 +154,10 @@ func (j *Job) Execute(ch chan error) {
 
 func (j *Job) RemoveTmpdir(tmpPath string) {
 	if !config.Worker.KeepTemp {
-		log.Println("Deleting all files and dirs in", tmpPath)
+		log.Debug("Deleting all files and dirs in", tmpPath)
 		err := os.RemoveAll(tmpPath)
 		if err != nil {
-			log.Println("Failed to delete all files and dirs in", tmpPath)
-			log.Println(err)
+			log.Error("Failed to delete all files and dirs in %s - %s", tmpPath, err)
 		}
 	}
 }

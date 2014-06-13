@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"os"
 	"path"
@@ -30,7 +29,7 @@ func ServiceRoot(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "POST" {
 		body, err := ioutil.ReadAll(r.Body)
 		if err == nil {
-			log.Printf("Callback: %s\n", body)
+			log.Info("Callback: %s\n", body)
 		}
 	}
 	w.Write([]byte("."))
@@ -87,16 +86,16 @@ func RunScript(c web.C, w http.ResponseWriter, r *http.Request) {
 	// Parse the request
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
-		log.Println(err)
+		log.Error(err.Error())
 	}
 	var sr ScriptRequest
 	err = json.Unmarshal(body, &sr)
 	if err != nil {
-		log.Println(err)
+		log.Error(err.Error())
 	}
 	id, err := getRedisID()
 	if err != nil {
-		log.Println(err)
+		log.Error(err.Error())
 	}
 	sr.ID = id
 	sr.Script = c.URLParams["name"]
@@ -105,7 +104,7 @@ func RunScript(c web.C, w http.ResponseWriter, r *http.Request) {
 	doneChan := make(chan *nsq.ProducerTransaction)
 	data, err := json.Marshal(sr)
 	if err != nil {
-		log.Println(err)
+		log.Error(err.Error())
 	}
 	err = producer.PublishAsync(config.Topic, data, doneChan)
 	if err != nil {
@@ -113,7 +112,7 @@ func RunScript(c web.C, w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	<-doneChan
-	log.Println("Request queued as", sr.ID)
+	log.Debug("Request queued as", sr.ID)
 
 	w.Header().Set("Content-Type", "application/json")
 	w.Write(data)
@@ -127,7 +126,7 @@ func GetAllLogs(c web.C, w http.ResponseWriter, r *http.Request) {
 	// LRANGE returns an array of json strings
 	reply, err := redis.Strings(conn.Do("ZRANGE", c.URLParams["name"], 0, -1))
 	if err != nil {
-		log.Println(err)
+		log.Error(err.Error())
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}

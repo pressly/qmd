@@ -3,12 +3,12 @@ package main
 import (
 	"flag"
 	"fmt"
-	"log"
 	"syscall"
 
 	"github.com/BurntSushi/toml"
 	"github.com/bitly/go-nsq"
 	"github.com/garyburd/redigo/redis"
+	"github.com/op/go-logging"
 	"github.com/zenazn/goji/graceful"
 	"github.com/zenazn/goji/web"
 	"github.com/zenazn/goji/web/middleware"
@@ -16,9 +16,10 @@ import (
 
 var (
 	configPath = flag.String("config-file", "./config.toml", "path to qmd config file")
-	config     Config
+	log        = logging.MustGetLogger("qmd")
 
 	authString string
+	config     Config
 	producer   *nsq.Producer
 	consumer   *nsq.Consumer
 	redisDB    *redis.Pool
@@ -31,20 +32,20 @@ const (
 func main() {
 	flag.Parse()
 
+	// Server config
 	_, err := toml.DecodeFile(*configPath, &config)
 	if err != nil {
 		log.Fatal(err)
 	}
+	config.logging.setup()
+
 	authString = fmt.Sprintf("%s:%s", config.Username, config.Password)
 
-	fmt.Println("Setting up producer")
+	// Setup facilities
 	producer = nsq.NewProducer(config.QueueAddr, nsq.NewConfig())
-
-	fmt.Println("Creating Redis connection pool")
 	redisDB = newRedisPool(config.RedisAddr)
 
-	// Setup and start worker.
-	fmt.Println("Creating worker")
+	// Script processing worker
 	worker, err := NewWorker(config)
 	if err != nil {
 		log.Fatal(err)
@@ -54,12 +55,10 @@ func main() {
 	// Http server
 	w := web.New()
 
-	// Register middleware
 	w.Use(middleware.Logger)
 	w.Use(BasicAuth)
 	w.Use(AllowSlash)
 
-	// Register endpoints
 	w.Get("/", ServiceRoot)
 	w.Post("/", ServiceRoot)
 	w.Get("/scripts", GetAllScripts)

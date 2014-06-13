@@ -2,8 +2,12 @@ Topic        = "qmd"
 ListenOnAddr = "0.0.0.0:8080"
 QueueAddr    = "0.0.0.0:4150"
 RedisAddr    = ":6379"
-Username = "qmd"
-Password = "password"
+Username     = "qmd"
+Password     = "password"
+
+[logging]
+LogLevel     = "INFO" # DEBUG > INFO > NOTICE > WARNING > ERROR > CRITICAL
+LogBackends  = [ "STDOUT" ] # "STDOUT", "syslog", or "/file/path"
 
 [worker]
 Channel      = "worker"

@@ -1,7 +1,6 @@
 package main
 
 import (
-	"log"
 	"time"
 
 	"github.com/garyburd/redigo/redis"
@@ -36,7 +35,7 @@ func getRedisID() (int, error) {
 
 	id, err := redis.Int(conn.Do("INCR", LOG_SEQ_KEY))
 	if err != nil {
-		log.Println(err)
+		log.Error(err.Error())
 		return id, err
 	}
 	return id, nil
