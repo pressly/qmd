@@ -12,7 +12,8 @@ import (
 	"github.com/bitly/go-nsq"
 	"github.com/braintree/manners"
 	"github.com/garyburd/redigo/redis"
-	"github.com/gorilla/mux"
+	"github.com/zenazn/goji/web"
+	"github.com/zenazn/goji/web/middleware"
 )
 
 var (
@@ -50,20 +51,24 @@ func main() {
 	}
 	go worker.Run()
 
-	// Register endpoints
-	rtr := mux.NewRouter().StrictSlash(true)
-	rtr.HandleFunc("/", ServiceRoot).Methods("GET")
-	rtr.HandleFunc("/", ServiceRoot).Methods("POST") // callback echo
-	rtr.HandleFunc("/scripts", GetAllScripts).Methods("GET")
-	rtr.HandleFunc("/scripts", ReloadScripts).Methods("PUT")
-	rtr.HandleFunc("/scripts/{name}", RunScript).Methods("POST")
-	rtr.HandleFunc("/scripts/{name}/logs", GetAllLogs).Methods("GET")
-	rtr.HandleFunc("/scripts/{name}/logs/{id}", GetLog).Methods("GET")
+	// Http server
+	w := web.New()
+
+	// w.Use(RequestLogger)
+	w.Use(middleware.Logger)
+
+	w.Get("/", ServiceRoot)
+	w.Post("/", ServiceRoot)
+	w.Get("/scripts", GetAllScripts)
+	w.Put("/scripts", ReloadScripts)
+	w.Post("/scripts/:name", RunScript)
+	w.Get("/scripts/:name/logs", GetAllLogs)
+	w.Get("/scripts/:name/logs/:id", GetLog)
 
 	// Create and start server
 	server := manners.NewServer()
 	fmt.Printf("Listening on %s\n", config.ListenOnAddr)
-	go server.ListenAndServe(config.ListenOnAddr, rtr)
+	go server.ListenAndServe(config.ListenOnAddr, w)
 
 	termChan := make(chan os.Signal, 1)
 	signal.Notify(termChan, syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
@@ -89,3 +94,10 @@ func main() {
 		}
 	}
 }
+
+// func ExampleMiddleware(h http.Handler) http.Handler {
+// 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+// 		log.Println("Request yooooooo")
+// 		h.ServeHTTP(w, r)
+// 	})
+// }
