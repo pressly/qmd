@@ -25,6 +25,7 @@ type ScriptRequest struct {
 	CallbackURL string            `json:"callback_url"`
 }
 
+// Handle the root route, also useful as a heartbeat.
 func ServiceRoot(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "POST" {
 		body, err := ioutil.ReadAll(r.Body)
@@ -35,10 +36,8 @@ func ServiceRoot(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("."))
 }
 
+// Get a list of all the scripts in script folder.
 func GetAllScripts(w http.ResponseWriter, r *http.Request) {
-	// Get a list of all the scripts in script folder.
-
-	log.Println("Received GET", r.URL)
 
 	// Open and parse whitelist
 	p := path.Join(config.Worker.ScriptDir, config.Worker.WhiteList)
@@ -64,11 +63,8 @@ func GetAllScripts(w http.ResponseWriter, r *http.Request) {
 	w.Write(buf.Bytes())
 }
 
+// Reload the whitelist of scripts.
 func ReloadScripts(w http.ResponseWriter, r *http.Request) {
-	// Reload the whitelist of scripts.
-
-	log.Println("Received PUT", r.URL)
-
 	p := path.Join(config.Worker.ScriptDir, config.Worker.WhiteList)
 
 	doneChan := make(chan *nsq.ProducerTransaction)
@@ -86,11 +82,8 @@ func ReloadScripts(w http.ResponseWriter, r *http.Request) {
 	w.Write(buf.Bytes())
 }
 
+// Send details to queue for execution.
 func RunScript(c web.C, w http.ResponseWriter, r *http.Request) {
-	// Send details to queue for execution.
-
-	log.Println("Received POST", r.URL)
-
 	// Parse the request
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
@@ -126,11 +119,8 @@ func RunScript(c web.C, w http.ResponseWriter, r *http.Request) {
 	w.Write(data)
 }
 
+// Retrieve all logs for a specific script.
 func GetAllLogs(c web.C, w http.ResponseWriter, r *http.Request) {
-	// Retrieve all logs for a specific script.
-
-	log.Println("Received GET", r.URL)
-
 	conn := redisDB.Get()
 	defer conn.Close()
 
@@ -157,11 +147,8 @@ func GetAllLogs(c web.C, w http.ResponseWriter, r *http.Request) {
 	w.Write(buf.Bytes())
 }
 
+// Retrieve a specific log of a specific script.
 func GetLog(c web.C, w http.ResponseWriter, r *http.Request) {
-	// Retrieve a specific log of a specific script.
-
-	log.Println("Received GET", r.URL)
-
 	conn := redisDB.Get()
 	defer conn.Close()
 
