@@ -61,11 +61,24 @@ func main() {
 	w.Get("/scripts/:name/logs", GetAllLogs)
 	w.Get("/scripts/:name/logs/:id", GetLog)
 
+	// Spin up the server with graceful hooks
+	graceful.PreHook(func() {
+		fmt.Println("Shutting down producer")
+		producer.Stop()
+
+		fmt.Println("Shutting down worker consumers")
+		worker.Stop()
+
+		fmt.Println("Closing Redis connections")
+		redisDB.Close()
+	})
+
+	graceful.AddSignal(syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
+
 	err = graceful.ListenAndServe(config.ListenOnAddr, w)
 	if err != nil {
 		log.Fatal(err)
 	}
-	graceful.AddSignal(syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
 	graceful.Wait()
 }
 
