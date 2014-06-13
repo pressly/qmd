@@ -53,7 +53,9 @@ func decodeAuth(auth string) (string, error) {
 // So /scripts/ == /scripts but /scripts// == /scripts/
 func AllowSlash(c *web.C, h http.Handler) http.Handler {
 	fn := func(w http.ResponseWriter, r *http.Request) {
-		r.URL.Path = strings.TrimSuffix(r.URL.Path, "/")
+		if len(r.URL.Path) < 1 {
+			r.URL.Path = strings.TrimSuffix(r.URL.Path, "/")
+		}
 		h.ServeHTTP(w, r)
 	}
 	return http.HandlerFunc(fn)

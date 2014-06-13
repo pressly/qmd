@@ -57,7 +57,7 @@ func main() {
 
 	w.Use(RequestLogger)
 	w.Use(BasicAuth)
-	// w.Use(AllowSlash)
+	w.Use(AllowSlash)
 
 	w.Get("/", ServiceRoot)
 	w.Post("/", ServiceRoot)
