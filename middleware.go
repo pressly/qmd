@@ -18,7 +18,7 @@ func BasicAuth(c *web.C, h http.Handler) http.Handler {
 
 		pass, err := decodeAuth(auth[6:])
 
-		if err != nil || pass != authString {
+		if err != nil || pass != config.auth.authString {
 			pleaseAuth(w)
 			return
 		}

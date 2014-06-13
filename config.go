@@ -1,23 +1,27 @@
 package main
 
+import "fmt"
+
 type Config struct {
 	Topic        string
 	ListenOnAddr string
 	QueueAddr    string
 	RedisAddr    string
-	Username     string
-	Password     string
+	auth         authConfig    `toml:"auth"`
 	logging      loggingConfig `toml:"logging"`
 	Worker       workerConfig  `toml:"worker"`
+}
+
+type authConfig struct {
+	Enabled    bool
+	Username   string
+	Password   string
+	authString string
 }
 
 type loggingConfig struct {
 	LogLevel    string
 	LogBackends map[string]string
-}
-
-func (l *loggingConfig) setup() {
-	log.Info("yes %s", l.LogLevel)
 }
 
 type workerConfig struct {
@@ -28,4 +32,14 @@ type workerConfig struct {
 	StoreDir   string
 	WhiteList  string
 	KeepTemp   bool
+}
+
+func (c *Config) setup() (err error) {
+	// Setup auth
+	c.auth.authString = fmt.Sprintf("%s:%s", config.auth.Username, config.auth.Password)
+
+	// Setup logger
+	log.Info("woooot %s", c.logging.LogLevel)
+
+	return
 }
