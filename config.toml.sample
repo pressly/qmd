@@ -2,7 +2,6 @@ Topic        = "qmd"
 ListenOnAddr = "0.0.0.0:8080"
 QueueAddr    = "0.0.0.0:4150"
 RedisAddr    = ":6379"
-KeepTemp     = false
 
 [worker]
 Channel      = "worker"
@@ -11,3 +10,4 @@ ScriptDir    = "./examples"
 WorkingDir   = "./"
 StoreDir     = "./store"
 WhiteList    = ".whitelist"
+KeepTemp     = false
