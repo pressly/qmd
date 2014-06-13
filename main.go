@@ -8,10 +8,10 @@ import (
 
 	"github.com/BurntSushi/toml"
 	"github.com/bitly/go-nsq"
-]	"github.com/garyburd/redigo/redis"
+	"github.com/garyburd/redigo/redis"
+	"github.com/zenazn/goji/graceful"
 	"github.com/zenazn/goji/web"
 	"github.com/zenazn/goji/web/middleware"
-	"github.com/zenazn/goji/graceful"
 )
 
 var (
@@ -51,8 +51,6 @@ func main() {
 
 	// Http server
 	w := web.New()
-
-	// w.Use(RequestLogger)
 	w.Use(middleware.Logger)
 
 	w.Get("/", ServiceRoot)
