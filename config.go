@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 
 	stdlog "log"
 
@@ -42,6 +43,12 @@ type workerConfig struct {
 }
 
 func (c *Config) Setup() error {
+	// Clean paths
+	err := c.fixPaths()
+	if err != nil {
+		return err
+	}
+
 	// Setup logger
 	logging.SetFormatter(logging.MustStringFormatter("%{level} %{message}"))
 
@@ -78,6 +85,24 @@ func (c *Config) Setup() error {
 	// Setup auth
 	c.Auth.AuthString = fmt.Sprintf("%s:%s", config.Auth.Username, config.Auth.Password)
 
+	return nil
+}
+
+func (c *Config) fixPaths() error {
+	var err error
+
+	c.Worker.ScriptDir, err = filepath.Abs(c.Worker.ScriptDir)
+	if err != nil {
+		return err
+	}
+	c.Worker.WorkingDir, err = filepath.Abs(c.Worker.WorkingDir)
+	if err != nil {
+		return err
+	}
+	c.Worker.StoreDir, err = filepath.Abs(c.Worker.StoreDir)
+	if err != nil {
+		return err
+	}
 	return nil
 }
 

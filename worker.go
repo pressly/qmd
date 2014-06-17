@@ -3,7 +3,6 @@ package main
 import (
 	"bufio"
 	"bytes"
-	"encoding/json"
 	"fmt"
 	"os"
 	"path"
@@ -100,14 +99,10 @@ func (w *Worker) LoadWhiteList(path string) error {
 }
 
 func (w *Worker) JobRequestHandler(m *nsq.Message) error {
-	// Initialize Job from request
-	var job Job
-	job.Status = STATUS_ERR
-
-	err := json.Unmarshal(m.Body, &job)
+	job, err := NewJob(m.Body)
 	if err != nil {
-		log.Error("Invalid JSON request: %s", err.Error())
-		return nil
+		log.Error("Couldn't create Job: %s", err.Error())
+		return err
 	}
 
 	// Try and run script

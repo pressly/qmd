@@ -28,6 +28,17 @@ type Job struct {
 	Duration    string            `json:"duration"`
 }
 
+func NewJob(data []byte) (Job, error) {
+	var job Job
+	job.Status = STATUS_ERR
+
+	err := json.Unmarshal(data, &job)
+	if err != nil {
+		return job, err
+	}
+	return job, nil
+}
+
 func (j *Job) CleanArgs() ([]string, error) {
 	// TODO find a way to clean the arguments
 	return j.Args, nil
@@ -108,7 +119,7 @@ func (j *Job) Execute(ch chan error) {
 	}
 
 	// Set environment variables
-	os.Setenv("QMD_STORE", path.Clean(config.Worker.StoreDir))
+	os.Setenv("QMD_STORE", config.Worker.StoreDir)
 
 	tmpPath := path.Join(config.Worker.WorkingDir, strconv.Itoa(j.ID))
 	os.MkdirAll(tmpPath, 0775)
@@ -127,7 +138,7 @@ func (j *Job) Execute(ch chan error) {
 
 	// Setup and execute cmd
 	cmd := exec.Command(s, args...)
-	cmd.Dir = path.Clean(config.Worker.WorkingDir)
+	cmd.Dir = config.Worker.WorkingDir
 	cmdOut := bytes.NewBuffer(nil)
 	cmd.Stdout = cmdOut
 	cmd.Stderr = cmdOut
