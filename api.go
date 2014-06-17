@@ -87,15 +87,21 @@ func RunScript(c web.C, w http.ResponseWriter, r *http.Request) {
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		log.Error(err.Error())
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
 	var sr ScriptRequest
 	err = json.Unmarshal(body, &sr)
 	if err != nil {
 		log.Error(err.Error())
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
 	id, err := getRedisID()
 	if err != nil {
 		log.Error(err.Error())
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
 	sr.ID = id
 	sr.Script = c.URLParams["name"]
@@ -105,6 +111,8 @@ func RunScript(c web.C, w http.ResponseWriter, r *http.Request) {
 	data, err := json.Marshal(sr)
 	if err != nil {
 		log.Error(err.Error())
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
 	err = producer.PublishAsync(config.Topic, data, doneChan)
 	if err != nil {
