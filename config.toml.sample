@@ -1,22 +1,24 @@
-topic        = "qmd"
-listenOnAddr = "0.0.0.0:8080"
-queueAddr    = "0.0.0.0:4150"
-redisAddr    = ":6379"
+Topic        = "qmd"
+ListenOnAddr = "0.0.0.0:8080"
+QueueAddr    = "0.0.0.0:4150"
+RedisAddr    = ":6379"
 
 [auth]
-enabled      = true
-username     = "qmd"
-password     = "pass"
+Enabled      = true
+Username     = "qmd"
+Password     = "pass"
 
 [logging]
-logLevel     = "INFO" # DEBUG > INFO > NOTICE > WARNING > ERROR > CRITICAL
-logBackends  = [ "STDOUT" ] # "STDOUT", "syslog", or "/file/path"
+LogLevel     = "INFO" # DEBUG > INFO > NOTICE > WARNING > ERROR > CRITICAL
+LogBackends  = [ "STDOUT" ] # "STDOUT", "syslog", or "/file/path"
 
 [worker]
-channel      = "worker"
-throughput   = 2
-scriptDir    = "./examples"
-workingDir   = "./"
-storeDir     = "./store"
-whiteList    = ".whitelist"
-keepTemp     = false
+Channel      = "worker"
+QueueAddresses = ["0.0.0.0:4150"]
+LookupAddresses = []
+Throughput   = 2
+ScriptDir    = "./examples"
+WorkingDir   = "./"
+StoreDir     = "./store"
+WhiteList    = ".whitelist"
+KeepTemp     = false

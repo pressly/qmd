@@ -16,16 +16,18 @@ const (
 )
 
 type Worker struct {
-	Consumer       *nsq.Consumer
-	ReloadConsumer *nsq.Consumer
-	Throughput     int
-	QueueAddr      string
-	WhiteList      map[string]bool
+	Consumer        *nsq.Consumer
+	ReloadConsumer  *nsq.Consumer
+	Throughput      int
+	QueueAddresses  []string
+	LookupAddresses []string
+	WhiteList       map[string]bool
 }
 
 func NewWorker(c Config) (worker Worker, err error) {
 	worker.Throughput = c.Worker.Throughput
-	worker.QueueAddr = c.QueueAddr
+	worker.QueueAddresses = c.Worker.QueueAddresses
+	worker.LookupAddresses = c.Worker.LookupAddresses
 
 	conf := nsq.NewConfig()
 	conf.Set("max_in_flight", worker.Throughput)
@@ -52,7 +54,7 @@ func NewWorker(c Config) (worker Worker, err error) {
 		return worker, err
 	}
 
-	log.Info("Worker connecting to %s and running scripts in %s.\n", c.QueueAddr, c.Worker.WorkingDir)
+	log.Info("Worker created watching scripts in %s", c.Worker.ScriptDir)
 	return worker, nil
 }
 
@@ -144,15 +146,36 @@ func (w *Worker) Run() {
 	w.Consumer.SetConcurrentHandlers(nsq.HandlerFunc(w.JobRequestHandler), w.Throughput)
 	w.ReloadConsumer.SetHandler(nsq.HandlerFunc(w.ReloadRequestHandler))
 
-	// Connect the queue.
-	err := w.Consumer.ConnectToNSQD(w.QueueAddr)
-	if err != nil {
-		log.Error(err.Error())
+	var err error
+
+	// Connect consumers to NSQLookupd
+	if w.LookupAddresses != nil && len(w.LookupAddresses) != 0 {
+		log.Info("Connecting Consumer to the following NSQLookupds %s", w.LookupAddresses)
+		err = w.Consumer.ConnectToNSQLookupds(w.LookupAddresses)
+		if err != nil {
+			log.Error(err.Error())
+		}
+
+		log.Info("Connecting ReloadConsumer to the following NSQLookupds %s", w.LookupAddresses)
+		err = w.ReloadConsumer.ConnectToNSQLookupds(w.LookupAddresses)
+		if err != nil {
+			log.Error(err.Error())
+		}
 	}
 
-	err = w.ReloadConsumer.ConnectToNSQD(w.QueueAddr)
-	if err != nil {
-		log.Error(err.Error())
+	// Connect consumers to NSQD
+	if w.QueueAddresses != nil && len(w.QueueAddresses) != 0 {
+		log.Info("Connecting Consumer to the following NSQDs %s", w.QueueAddresses)
+		err = w.Consumer.ConnectToNSQDs(w.QueueAddresses)
+		if err != nil {
+			log.Error(err.Error())
+		}
+
+		log.Info("Connecting ReloadConsumer to the following NSQDs %s", w.QueueAddresses)
+		err = w.ReloadConsumer.ConnectToNSQDs(w.QueueAddresses)
+		if err != nil {
+			log.Error(err.Error())
+		}
 	}
 }
 
