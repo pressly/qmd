@@ -120,7 +120,7 @@ func RunScript(c web.C, w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	<-doneChan
-	log.Debug("Request queued as %d", sr.ID)
+	log.Info("Request queued as %d", sr.ID)
 
 	w.Header().Set("Content-Type", "application/json")
 	w.Write(data)
