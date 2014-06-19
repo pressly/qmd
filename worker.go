@@ -161,20 +161,22 @@ func (w *Worker) Run() {
 		if err != nil {
 			log.Error(err.Error())
 		}
-	}
+	} else {
+		// Connect consumers to NSQD
+		if w.QueueAddresses != nil && len(w.QueueAddresses) != 0 {
+			log.Info("Connecting Consumer to the following NSQDs %s", w.QueueAddresses)
+			err = w.Consumer.ConnectToNSQDs(w.QueueAddresses)
+			if err != nil {
+				log.Error(err.Error())
+			}
 
-	// Connect consumers to NSQD
-	if w.QueueAddresses != nil && len(w.QueueAddresses) != 0 {
-		log.Info("Connecting Consumer to the following NSQDs %s", w.QueueAddresses)
-		err = w.Consumer.ConnectToNSQDs(w.QueueAddresses)
-		if err != nil {
-			log.Error(err.Error())
-		}
-
-		log.Info("Connecting ReloadConsumer to the following NSQDs %s", w.QueueAddresses)
-		err = w.ReloadConsumer.ConnectToNSQDs(w.QueueAddresses)
-		if err != nil {
-			log.Error(err.Error())
+			log.Info("Connecting ReloadConsumer to the following NSQDs %s", w.QueueAddresses)
+			err = w.ReloadConsumer.ConnectToNSQDs(w.QueueAddresses)
+			if err != nil {
+				log.Error(err.Error())
+			}
+		} else {
+			log.Fatal("Couldn't connect to any NSQLookupd: %s or NSQD: %s nodes", w.LookupAddresses, w.QueueAddresses)
 		}
 	}
 }
