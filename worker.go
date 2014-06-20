@@ -106,11 +106,24 @@ func (w *Worker) JobRequestHandler(m *nsq.Message) error {
 		log.Error("Couldn't create Job: %s", err.Error())
 		return err
 	}
+	log.Info("Dequeued Job %d", job.ID)
+
+	// Check if Job is already being executed
+	success, err := setRedisID(job.ID)
+	if err != nil {
+		log.Error("Couldn't continue with Job #%d, aborting: %s", job.ID, err.Error())
+		if !success {
+			unsetRedisID(job.ID)
+		}
+		return err
+	}
+	if !success {
+		log.Info("Job #%d being handled, aborting!", job.ID)
+		return err
+	}
 
 	// Try and run script
 	if len(w.WhiteList) == 0 || w.WhiteList[job.Script] {
-		log.Info("Dequeued request as Job %d", job.ID)
-
 		resultChan := make(chan error, 1)
 		go job.Execute(resultChan)
 		err := <-resultChan
