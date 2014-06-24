@@ -3,6 +3,18 @@
 ..prounounced "command", is utility http service for executing arbitary scripts.
 We use it to compile javascript assets and upload them to s3. 
 
+
+# Requirements
+
+In addition to the QMD daemon's dependencies it also requires the following items to be running:
+
+* Redis
+* nsqd
+* nsqlookupd *optional* *recommended*
+* nsqadmin *optional*
+
+For the NSQ binaries please checkout the docs for installation instructions: http://nsq.io/deployment/installing.html
+
 # API
 
 ## Scripts resource
