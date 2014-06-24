@@ -43,7 +43,10 @@ func main() {
 	log.Info("=====> [ QMD v%s ] <=====", VERSION)
 
 	// Setup facilities
-	producer = nsq.NewProducer(config.QueueAddr, nsq.NewConfig())
+	producer, err = nsq.NewProducer(config.QueueAddr, nsq.NewConfig())
+	if err != nil {
+		log.Fatal(err)
+	}
 	redisDB = newRedisPool(config.RedisAddr)
 
 	// Script processing worker
