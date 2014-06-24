@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/garyburd/redigo/redis"
@@ -9,6 +10,7 @@ import (
 const (
 	LOG_SEQ_KEY string = "QMD_LOG_IDS"
 	LOGLIMIT    int    = 50
+	JOB_TIMEOUT int    = 900
 )
 
 func newRedisPool(server string) *redis.Pool {
@@ -27,6 +29,40 @@ func newRedisPool(server string) *redis.Pool {
 			return err
 		},
 	}
+}
+
+func setRedisID(id int) (bool, error) {
+	conn := redisDB.Get()
+	defer conn.Close()
+
+	var result bool
+	key := fmt.Sprintf("Job #%d", id)
+	success, err := redis.Bool(conn.Do("SETNX", key, id))
+	if err != nil {
+		log.Error(err.Error())
+		return result, err
+	}
+	if success {
+		result = true
+		conn.Do("EXPIRE", key, JOB_TIMEOUT)
+	}
+	return result, nil
+}
+
+func unsetRedisID(id int) (bool, error) {
+	conn := redisDB.Get()
+	defer conn.Close()
+
+	var result bool
+	numRemoved, err := redis.Int(conn.Do("DEL", fmt.Sprintf("Job #%d", id)))
+	if err != nil {
+		log.Error(err.Error())
+		return result, err
+	}
+	if numRemoved > 0 {
+		result = true
+	}
+	return result, nil
 }
 
 func getRedisID() (int, error) {
