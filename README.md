@@ -239,11 +239,14 @@ GET /scripts/hi.sh/logs/49
 }
 ```
 
-# Security Note
+# Notes
 
-QMD exposes the shell over HTTP, so be careful! It's intended to be used as an
-internal service. Even then authentication is required and the daemon should be run as
-in normal user mode (duh).
+* QMD exposes the shell over HTTP, this is very very dangerous so be careful! It's intended to be used as an internal service. Even then authentication should be used and the daemon should be run as in normal user mode.
+
+* Scripts will have access to the following environment variables
+  * `QMD_TMP`: the directory where your script is being run. All files here will be deleted unless `keepTemp` is set to `true` in your config. Located at `workingDir/tmp/:id`.
+  * `QMD_STORE`: the directory set in your config as `storeDir`. All files written here will be left alone.
+  * `QMD_OUT`: the output file for your script. Everything written here will be persisted to the response/log under the `output` key. Located at `QMD_TMP/qmd.out`.
 
 
 # Authors
