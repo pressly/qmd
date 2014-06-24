@@ -1,10 +1,12 @@
-topic        = "qmd"
-listenOnAddr = "0.0.0.0:8080"
-queueAddr    = "0.0.0.0:4150"
-redisAddr    = ":6379"
+# Sample configuration settings for QMD
 
-[auth]
-enabled      = true
+topic        = "qmd" # Used for NSQ
+listenOnAddr = "0.0.0.0:8080" # Address that QMD listens to for requests.
+queueAddr    = "0.0.0.0:4150" # Address of nsqd.
+redisAddr    = ":6379" # Address for Redis database.
+
+[auth] # OPTIONAL
+enabled      = true # Set to false to not use any auth.
 username     = "qmd"
 password     = "pass"
 
@@ -13,10 +15,10 @@ logLevel     = "INFO" # DEBUG > INFO > NOTICE > WARNING > ERROR > CRITICAL
 logBackends  = [ "STDOUT" ] # "STDOUT", "syslog", or "/file/path"
 
 [worker]
-channel      = "worker"
-throughput   = 2
-scriptDir    = "./examples"
-workingDir   = "./"
-storeDir     = "./store"
-whiteList    = ".whitelist"
-keepTemp     = false
+channel      = "worker" # Used for NSQ
+throughput   = 2 # Max number of scripts allowed to run concurrently
+scriptDir    = "./examples" # Path to directory containing scripts. Relative paths are parsed to absolute paths on run.
+workingDir   = "./" # Directory to run scripts from. /:workingDir/:id. /tmp folder created here.
+storeDir     = "./store" # Path to a persistant directory. QMD will not delete anything here.
+whiteList    = ".whitelist" # Name of the script whitelist. Assumed to be located in scriptDir.
+keepTemp     = false # OPTIONAL. Set to true to keep files in /tmp dir.
