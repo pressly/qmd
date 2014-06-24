@@ -75,6 +75,12 @@ Response (JSON):
 * `args`: the user given arguments if any
 * `files`: the user given files if any
 * `callback_url`: an endpoint to send the output
+* `output`: the $QMD_OUT output
+* `exec_log`: the piped STDOUT and STDERR script execution log
+* `status`: the exit status of the script; either OK or ERR
+* `start_time`: the time (in local system time) the script began to execute
+* `end_time`: the time (in local system time) the script finished executing
+* `duration`: the amount of time taken to run the script
 
 **Example: Enqueue a script to execute in the background and send output to a callback URL**
 
@@ -184,17 +190,7 @@ GET /scripts/:script_id/logs/:id
 
 Response (JSON):
 
-* `id`: an auto-incrementing number
-* `script`: the filename in the scripts directory
-* `args`: the user given arguments if any
-* `files`: the user given files if any
-* `callback_url`: an endpoint to send the output
-* `output`: the $QMD_OUT output
-* `exec_log`: the piped STDOUT and STDERR script execution log
-* `status`: the exit status of the script; either OK or ERR
-* `start_time`: the time (in local system time) the script began to execute
-* `end_time`: the time (in local system time) the script finished executing
-* `duration`: the amount of time taken to run the script
+* a JSON object containing all the exec log information
 
 **Example:**
 
