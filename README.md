@@ -16,6 +16,20 @@ In addition to the QMD daemon's dependencies it also requires the following item
 For the NSQ binaries please checkout the docs for installation instructions: http://nsq.io/deployment/installing.html
 
 
+# Getting Started
+
+After pulling the repo and building the QMD binary, you will need to create three things
+
+* `config` file  *see [config.toml.sample](config.toml.sample) for example settings*
+* `scripts` directory  *where QMD looks for scripts to run, see [examples](examples)*
+* `whitelist` file  *list of runnable scripts should be located in the scripts directory, see [examples/.whitelist](examples/.whitelist)*
+
+Then you will need to start up Redis and NSQ. QMD can then be started with the command
+```
+qmd -config-file <path to config file>
+```
+
+
 # API
 
 ### QMD Heartbeat
