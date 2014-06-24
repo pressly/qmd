@@ -2,3 +2,4 @@ ls.sh
 test.sh
 example.sh
 wait.sh
+bench.sh
