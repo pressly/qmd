@@ -7,6 +7,20 @@ We use it to compile javascript assets and upload them to s3.
 
 ## Scripts resource
 
+
+### QMD Heartbeat
+
+Request:
+```
+GET /
+```
+
+Response (Text):
+
+* `200 OK` status and the text `.`
+* To be used as a form of heartbeat check.
+
+
 ### Fetch a list of the available scripts
 
 Request:
@@ -15,7 +29,7 @@ Request:
 GET /scripts
 ```
 
-Response (json):
+Response (JSON):
 
 * array of executable scripts from `ScriptDir`
 
@@ -28,28 +42,17 @@ GET /scripts
 ```
 
 
-### Fetch a script
+### Reload the whitelist of scripts
 
 Request:
 
 ```
-GET /scripts/:script_id
+PUT /scripts
 ```
 
-Response (text):
+Response (Text):
 
-* the raw script data
-
-**Example:**
-
-```
-GET /scripts/hi.sh
-```
-```
-#!/bin/sh
-echo "some script output $1 $2" > $QMD_OUT
-echo "hiii this is part of the exec log"
-```
+* `200 OK` status and the text `Reload request sent`
 
 
 ### Execute a script
@@ -58,35 +61,39 @@ echo "hiii this is part of the exec log"
 POST /scripts/:script_id
 ```
 
-Request params (json):
+Request params (JSON):
 
 * `callback_url`:  (optional) execute the script in the background and send the output to the callback_url when the script finishes
 * `args`: array of command line arguments to pass to the script upon execution
+* `files`: JSON object containing filename : filedata pairs which are saved in $QMD_TMP for the script to use
 
 
-Response (json):
+Response (JSON):
 
-* `exec_id`: an auto-incrementing number
-* `script_id`: the filename in the scripts directory
+* `id`: an auto-incrementing number
+* `script`: the filename in the scripts directory
+* `args`: the user given arguments if any
+* `files`: the user given files if any
 * `callback_url`: an endpoint to send the output
-* `exec_log`: the piped STDOUT and STDERR script execution log
-* `output`: the $QMD_OUT output
-* `start_time`: the time (in local system time) the script began to execute
-* `duration`: the amount of time taken to run the script
-* `status`: the exit status of the script; either OK or ERR
 
 **Example: Enqueue a script to execute in the background and send output to a callback URL**
 
 ```
-POST /scripts/hi.sh
+POST /scripts/bench.sh
 {
- "callback_url": "http://...", args: ["a", "b"]
+    "callback_url": "http://...", 
+    "args": ["1", "20"],
 }
 ```
 ```
 {
- "exec_id": 1, "script_id": "hi.sh", "args": ["a", "b"], "callback_url": "http://...", 
- "start_time": "2014-05-25T16:45:49Z", "duration": null, "status": null
+    "id": 1,
+    "script": "bench.sh",
+    "args": [
+        "1",
+        "20"
+    ],
+    "callback_url": "http://..."
 }
 ```
 
@@ -95,83 +102,128 @@ response to `callback_url`:
 
 ```
 {
- "exec_id": 1, "script_id": "hi.sh", "args": ["a", "b"], "callback_url": "http://...",
- "start_time": "2014-05-25T16:45:49Z", "duration": 3000, "status": "OK",
- "output": "some script output a b", "exec_log": "hiii this is part of the exec log"
-}
-```
-
-**Example: Execute a script synchronously and return the output**
-
-NOTE: this currently isn't implemented.. all script executions happen asynchronously
-and require a callback
-
-```
-POST /scripts/hi.sh
-{
- "args": ["a"]
-}
-```
-```
-{
- "exec_id": 2, "script_id": "hi.sh", "args": ["a"],
- "start_time": "2014-05-25T16:45:49Z", "duration": 10000, "status": "OK",
- "output": "some script output a", "exec_log": "hiii this is part of the exec log"
+    "id": 1,
+    "script": "bench.sh",
+    "args": [
+        "1",
+        "20"
+    ],
+    "callback_url": "http://...",
+    "output": "",
+    "exec_log": "Running under PID #16231\nMaking file in tmp dir at /home/vagrant/test/tmp/883\n/home/vagrant/test/scripts/bench.sh: line 10: Test #$PID: command not found\nMaking file in store dir at /home/vagrant/test/store\n/home/vagrant/test/scripts/bench.sh: line 13: Test #$PID: command not found\nRandomly selected 2\nzzzzzzzzzzzzzzzzz\nzzzzzz..I'M AWAKE\nRandomly selected 12\nzzzzzzzzzzzzzzzzz\nzzzzzz..I'M AWAKE\nRandomly selected 3\nzzzzzzzzzzzzzzzzz\nzzzzzz..I'M AWAKE\nRandomly selected 20\nAbandon ship! Abandon ship! Everyone for themselves!\n\nsignal: hangup",
+    "status": "ERR",
+    "start_time": "2014-06-24T17:26:39.643458173Z",
+    "end_time": "2014-06-24T17:26:56.666502567Z",
+    "duration": "17.023044394s"
 }
 ```
 
 
-## Fetch the exec log for a script
+## Fetch all exec logs for a script
 
 Request:
 
 ```
-GET /scripts/:script_id/log/:exec_id
+GET /scripts/:script_id/logs
 ```
 
-Params:
+Response (JSON):
 
-* none for now.. we can add a cursor some day
-
-Response (json):
-
-* array of `exec` objects as would be received from a completed job. Descending exec_id order.
+* array of `exec log` objects as would be received from a completed job. In descending exec_id order.
+* Maximum of 50 items as we trim the logs in Redis.
 
 **Example:**
 
 ```
-GET /scripts/hi.sh/log
+GET /scripts/hi.sh/logs
 ```
 ```
-[{
- "exec_id": 2, "script_id": "hi.sh", "args": ["a"],
- "start_time": "2014-05-25T16:45:49Z", "duration": 10000, "status": "OK",
- "output": "some script output a", "exec_log": "hiii this is part of the exec log"
-},
+[
+    {
+        "id": 50,
+        "script": "bench.sh",
+        "args": [
+            "1",
+            "20"
+        ],
+        "callback_url": "http://...",
+        "output": "",
+        "exec_log": "Running under PID #16231\nMaking file in tmp dir at /home/vagrant/test/tmp/883\n/home/vagrant/test/scripts/bench.sh: line 10: Test #$PID: command not found\nMaking file in store dir at /home/vagrant/test/store\n/home/vagrant/test/scripts/bench.sh: line 13: Test #$PID: command not found\nRandomly selected 2\nzzzzzzzzzzzzzzzzz\nzzzzzz..I'M AWAKE\nRandomly selected 12\nzzzzzzzzzzzzzzzzz\nzzzzzz..I'M AWAKE\nRandomly selected 3\nzzzzzzzzzzzzzzzzz\nzzzzzz..I'M AWAKE\nRandomly selected 20\nAbandon ship! Abandon ship! Everyone for themselves!\n\nsignal: hangup",
+        "status": "ERR",
+        "start_time": "2014-06-24T17:26:39.643458173Z",
+        "end_time": "2014-06-24T17:26:56.666502567Z",
+        "duration": "17.023044394s"
+    },
+    {
+        "id": 49,
+        "script": "bench.sh",
+        "args": [
+            "1",
+            "20"
+        ],
+        "callback_url": "http://...",
+        "output": "",
+        "exec_log": "Running under PID #16231\nMaking file in tmp dir at /home/vagrant/test/tmp/883\n/home/vagrant/test/scripts/bench.sh: line 10: Test #$PID: command not found\nMaking file in store dir at /home/vagrant/test/store\n/home/vagrant/test/scripts/bench.sh: line 13: Test #$PID: command not found\nRandomly selected 2\nzzzzzzzzzzzzzzzzz\nzzzzzz..I'M AWAKE\nRandomly selected 12\nzzzzzzzzzzzzzzzzz\nzzzzzz..I'M AWAKE\nRandomly selected 3\nzzzzzzzzzzzzzzzzz\nzzzzzz..I'M AWAKE\nRandomly selected 20\nAbandon ship! Abandon ship! Everyone for themselves!\n\nsignal: hangup",
+        "status": "ERR",
+        "start_time": "2014-06-24T17:26:39.643458173Z",
+        "end_time": "2014-06-24T17:26:56.666502567Z",
+        "duration": "17.023044394s"
+    },
+    ...
+]
+```
+
+
+## Fetch a specific exec log for a script
+
+Request:
+
+```
+GET /scripts/:script_id/logs/:id
+```
+
+Response (JSON):
+
+* `id`: an auto-incrementing number
+* `script`: the filename in the scripts directory
+* `args`: the user given arguments if any
+* `files`: the user given files if any
+* `callback_url`: an endpoint to send the output
+* `output`: the $QMD_OUT output
+* `exec_log`: the piped STDOUT and STDERR script execution log
+* `status`: the exit status of the script; either OK or ERR
+* `start_time`: the time (in local system time) the script began to execute
+* `end_time`: the time (in local system time) the script finished executing
+* `duration`: the amount of time taken to run the script
+
+**Example:**
+
+```
+GET /scripts/hi.sh/logs/49
+```
+```
 {
- "exec_id": 1, "script_id": "hi.sh", "args": ["a", "b"], "callback_url": "http://...",
- "start_time": "2014-05-25T16:45:49Z", "duration": 3000, "status": "OK",
- "output": "some script output a b", "exec_log": "hiii this is part of the exec log"
-}]
+    "id": 49,
+    "script": "bench.sh",
+    "args": [
+        "1",
+        "20"
+    ],
+    "callback_url": "http://...",
+    "output": "",
+    "exec_log": "Running under PID #16231\nMaking file in tmp dir at /home/vagrant/test/tmp/883\n/home/vagrant/test/scripts/bench.sh: line 10: Test #$PID: command not found\nMaking file in store dir at /home/vagrant/test/store\n/home/vagrant/test/scripts/bench.sh: line 13: Test #$PID: command not found\nRandomly selected 2\nzzzzzzzzzzzzzzzzz\nzzzzzz..I'M AWAKE\nRandomly selected 12\nzzzzzzzzzzzzzzzzz\nzzzzzz..I'M AWAKE\nRandomly selected 3\nzzzzzzzzzzzzzzzzz\nzzzzzz..I'M AWAKE\nRandomly selected 20\nAbandon ship! Abandon ship! Everyone for themselves!\n\nsignal: hangup",
+    "status": "ERR",
+    "start_time": "2014-06-24T17:26:39.643458173Z",
+    "end_time": "2014-06-24T17:26:56.666502567Z",
+    "duration": "17.023044394s"
+}
 ```
 
 # Security Note
 
-QMD exposes the command line over http, so be careful! It's intended to be used as an
+QMD exposes the shell over HTTP, so be careful! It's intended to be used as an
 internal service. Even then authentication is required and the daemon should be run as
 in normal user mode (duh).
-
-
-# Ideas
-
-1. Embed nsqd / nsqlookupd / the admin ui. This way, there isn't a need to run nsq separately.
-
-2. Related to #1, Add QmdClusterLookup config addr (which is nsqlookupd)
-
-
-# TODO
-
-1. Implement metric tracking. Possible with go-metrics and Graphite?
 
 
 # Authors / License
