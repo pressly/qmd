@@ -17,10 +17,10 @@ import (
 )
 
 type ScriptRequest struct {
-	ID          int
+	ID          int               `json:"id"`
 	Script      string            `json:"script"`
-	Args        []string          `json:"args"`
-	Files       map[string]string `json:"files"`
+	Args        []string          `json:"args,omitempty"`
+	Files       map[string]string `json:"files,omitempty"`
 	CallbackURL string            `json:"callback_url"`
 }
 
