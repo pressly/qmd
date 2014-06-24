@@ -20,7 +20,7 @@ For the NSQ binaries please checkout the docs for installation instructions: htt
 
 After pulling the repo and building the QMD binary, you will need to create three things
 
-* `config` file  *see [config.toml.sample](config.toml.sample) for example settings*
+* `config` file  *see [config.sample.toml](config.sample.toml) for example settings*
 * `scripts` directory  *where QMD looks for scripts to run, see [examples](examples)*
 * `whitelist` file  *list of runnable scripts should be located in the scripts directory, see [examples/.whitelist](examples/.whitelist)*
 
