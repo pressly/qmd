@@ -10,6 +10,7 @@ import (
 const (
 	LOG_SEQ_KEY string = "QMD_LOG_IDS"
 	LOGLIMIT    int    = 50
+	JOB_TIMEOUT int    = 900
 )
 
 func newRedisPool(server string) *redis.Pool {
@@ -43,7 +44,7 @@ func setRedisID(id int) (bool, error) {
 	}
 	if success {
 		result = true
-		conn.Do("EXPIRE", key, 900)
+		conn.Do("EXPIRE", key, JOB_TIMEOUT)
 	}
 	return result, nil
 }
