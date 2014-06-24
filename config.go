@@ -33,13 +33,15 @@ type loggingConfig struct {
 }
 
 type workerConfig struct {
-	Channel    string
-	Throughput int
-	ScriptDir  string
-	WorkingDir string
-	StoreDir   string
-	WhiteList  string
-	KeepTemp   bool
+	Channel         string
+	QueueAddresses  []string
+	LookupAddresses []string
+	Throughput      int
+	ScriptDir       string
+	WorkingDir      string
+	StoreDir        string
+	WhiteList       string
+	KeepTemp        bool
 }
 
 func (c *Config) Setup() error {
