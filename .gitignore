@@ -27,4 +27,7 @@ Vagrantfile
 .vagrant
 qmd
 settings.toml
+config.toml
 tmp
+jobs
+store
