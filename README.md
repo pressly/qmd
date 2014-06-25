@@ -104,7 +104,7 @@ Response (JSON):
 * `status`: the exit status of the script; either OK or ERR
 * `start_time`: the time (in local system time) the script began to execute
 * `end_time`: the time (in local system time) the script finished executing
-* `duration`: the amount of time taken to run the script
+* `duration`: the amount of time taken to run the script in seconds as a string
 
 **Example: Enqueue a script to execute in the background and send output to a callback URL**
 
@@ -144,7 +144,7 @@ response to `callback_url`:
     "status": "ERR",
     "start_time": "2014-06-24T17:26:39.643458173Z",
     "end_time": "2014-06-24T17:26:56.666502567Z",
-    "duration": "17.023044394s"
+    "duration": "17.023044394"
 }
 ```
 
@@ -182,7 +182,7 @@ GET /scripts/hi.sh/logs
         "status": "ERR",
         "start_time": "2014-06-24T17:26:39.643458173Z",
         "end_time": "2014-06-24T17:26:56.666502567Z",
-        "duration": "17.023044394s"
+        "duration": "17.023044394"
     },
     {
         "id": 49,
@@ -235,7 +235,7 @@ GET /scripts/hi.sh/logs/49
     "status": "ERR",
     "start_time": "2014-06-24T17:26:39.643458173Z",
     "end_time": "2014-06-24T17:26:56.666502567Z",
-    "duration": "17.023044394s"
+    "duration": "17.023044394"
 }
 ```
 
