@@ -147,7 +147,7 @@ func (j *Job) Execute(ch chan error) {
 	err = cmd.Run()
 
 	j.FinishTime = time.Now()
-	j.Duration = j.FinishTime.Sub(j.StartTime).String()
+	j.Duration = fmt.Sprintf("%f", j.FinishTime.Sub(j.StartTime).Seconds())
 	j.ExecLog = fmt.Sprintf("%s", string(cmdOut.Bytes()))
 
 	if err != nil {
