@@ -7,6 +7,7 @@ import (
 
 	stdlog "log"
 
+	"github.com/BurntSushi/toml"
 	"github.com/op/go-logging"
 )
 
@@ -42,6 +43,29 @@ type workerConfig struct {
 	StoreDir        string
 	WhiteList       string
 	KeepTemp        bool
+}
+
+// Find and load config file by path
+func (c *Config) Load(p string) error {
+	var err error
+
+	if p == "" {
+		p = "./config.toml"
+	}
+	p, err = filepath.Abs(p)
+	if err != nil {
+		return err
+	}
+
+	if _, err = os.Stat(p); os.IsNotExist(err) {
+		return fmt.Errorf("No config file found at %s", p)
+	}
+
+	_, err = toml.DecodeFile(p, &c)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (c *Config) Setup() error {

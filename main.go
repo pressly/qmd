@@ -4,7 +4,6 @@ import (
 	"flag"
 	"syscall"
 
-	"github.com/BurntSushi/toml"
 	"github.com/bitly/go-nsq"
 	"github.com/garyburd/redigo/redis"
 	"github.com/op/go-logging"
@@ -28,13 +27,16 @@ const (
 )
 
 func main() {
+	var err error
+
 	flag.Parse()
 
 	// Server config
-	_, err := toml.DecodeFile(*configPath, &config)
+	err = config.Load(*configPath)
 	if err != nil {
 		log.Fatal(err)
 	}
+
 	err = config.Setup()
 	if err != nil {
 		log.Fatal(err)
