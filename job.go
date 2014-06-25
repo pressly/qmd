@@ -157,7 +157,7 @@ func (j *Job) Execute(ch chan error) {
 	}
 
 	data, err := ioutil.ReadFile(outPath)
-	if os.IsNotExist(err) {
+	if !os.IsNotExist(err) {
 		j.Output = string(data)
 		err = nil
 	}
