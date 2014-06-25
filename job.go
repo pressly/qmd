@@ -96,6 +96,10 @@ func (j *Job) Callback() error {
 		return err
 	}
 
+	if j.CallbackURL == "" {
+		return fmt.Errorf("No callback url given")
+	}
+
 	log.Info("Sending response back to %s", j.CallbackURL)
 	buf := bytes.NewBuffer(data)
 	_, err = http.Post(j.CallbackURL, "application/json", buf)
