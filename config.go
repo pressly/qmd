@@ -15,6 +15,7 @@ type Config struct {
 	Topic        string
 	ListenOnAddr string
 	QueueAddr    string
+	AdminAddr    string
 	RedisAddr    string
 	Auth         authConfig    `toml:"auth"`
 	Logging      loggingConfig `toml:"logging"`

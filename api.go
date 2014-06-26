@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"net/http/httputil"
+	"net/url"
 	"os"
 	"path"
 	"strings"
@@ -24,15 +26,22 @@ type ScriptRequest struct {
 	CallbackURL string            `json:"callback_url"`
 }
 
-// Handle the root route, also useful as a heartbeat.
-func ServiceRoot(w http.ResponseWriter, r *http.Request) {
-	if r.Method == "POST" {
-		body, err := ioutil.ReadAll(r.Body)
-		if err == nil {
-			log.Info("Callback: %s", body)
-		}
+// Handle and reverse proxy the admin route to nsqadmin.
+func AdminProxy(w http.ResponseWriter, r *http.Request) {
+	targetURL := config.AdminAddr
+	if targetURL == "" {
+		http.Error(w, "No admin panel found", http.StatusNotFound)
+		return
 	}
-	w.Write([]byte("."))
+	if !strings.Contains(targetURL, "http://") {
+		targetURL = fmt.Sprintf("%s%s", "http://", "0.0.0.0:4171")
+	}
+	u, err := url.Parse(targetURL)
+	if err != nil {
+		w.Write([]byte(err.Error()))
+	}
+	p := httputil.NewSingleHostReverseProxy(u)
+	p.ServeHTTP(w, r)
 }
 
 // Get a list of all the scripts in script folder.

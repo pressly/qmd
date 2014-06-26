@@ -3,6 +3,7 @@
 topic        = "qmd" # Used for NSQ
 listenOnAddr = "0.0.0.0:8080" # Address that QMD listens to for requests.
 queueAddr    = "0.0.0.0:4150" # Address of nsqd.
+adminAddr    = "0.0.0.0:4171" # OPTIONAL. Address to nsqadmin.
 redisAddr    = ":6379" # Address for Redis database.
 
 [auth] # OPTIONAL

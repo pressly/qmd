@@ -2,12 +2,14 @@ package main
 
 import (
 	"flag"
+
 	"syscall"
 
 	"github.com/bitly/go-nsq"
 	"github.com/garyburd/redigo/redis"
 	"github.com/op/go-logging"
-	"github.com/pressly/gohttpware"
+	"github.com/pressly/gohttpware/auth"
+	"github.com/pressly/gohttpware/route"
 	"github.com/zenazn/goji/graceful"
 	"github.com/zenazn/goji/web"
 	"github.com/zenazn/goji/web/middleware"
@@ -65,17 +67,16 @@ func main() {
 	w.Use(middleware.Logger)
 	w.Use(middleware.Recoverer)
 	if config.Auth.Enabled {
-		w.Use(httpware.BasicAuth(config.Auth.Username, config.Auth.Password, "Restricted"))
+		w.Use(auth.BasicAuth(config.Auth.Username, config.Auth.Password, "Restricted"))
 	}
-	w.Use(httpware.AllowSlash)
+	w.Use(route.AllowSlash)
 
-	w.Get("/", ServiceRoot)
-	w.Post("/", ServiceRoot)
 	w.Get("/scripts", GetAllScripts)
 	w.Put("/scripts", ReloadScripts)
 	w.Post("/scripts/:name", RunScript)
 	w.Get("/scripts/:name/logs", GetAllLogs)
 	w.Get("/scripts/:name/logs/:id", GetLog)
+	w.Handle("/*", AdminProxy)
 
 	// Spin up the server with graceful hooks
 	graceful.PreHook(func() {
