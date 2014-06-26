@@ -4,11 +4,9 @@ import (
 	"encoding/base64"
 	"net/http"
 	"strings"
-
-	"github.com/zenazn/goji/web"
 )
 
-func BasicAuth(c *web.C, h http.Handler) http.Handler {
+func BasicAuth(h http.Handler) http.Handler {
 	fn := func(w http.ResponseWriter, r *http.Request) {
 		if config.Auth.Enabled {
 			auth := r.Header.Get("Authorization")
@@ -43,7 +41,7 @@ func decodeAuth(auth string) (string, error) {
 
 // Removes the last trailing slash if it exists.
 // So /scripts/ == /scripts but /scripts// == /scripts/
-func AllowSlash(c *web.C, h http.Handler) http.Handler {
+func AllowSlash(h http.Handler) http.Handler {
 	fn := func(w http.ResponseWriter, r *http.Request) {
 		if len(r.URL.Path) > 1 {
 			r.URL.Path = strings.TrimSuffix(r.URL.Path, "/")
