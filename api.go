@@ -30,6 +30,7 @@ type ScriptRequest struct {
 func AdminProxy(w http.ResponseWriter, r *http.Request) {
 	targetURL := config.AdminAddr
 	if targetURL == "" {
+		log.Error("No admin panel found")
 		http.Error(w, "No admin panel found", http.StatusNotFound)
 		return
 	}

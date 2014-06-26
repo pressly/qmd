@@ -32,7 +32,7 @@ qmd -config-file <path to config file>
 
 # API
 
-### QMD Heartbeat
+### QMD Admin Panel (nsqadmin)
 
 Request:
 ```
@@ -41,8 +41,7 @@ GET /
 
 Response (Text):
 
-* `200 OK` status and the text `.`
-* To be used as a form of heartbeat check.
+* The root path is proxied to the nsqadmin panel.
 
 
 ### Fetch a list of the available scripts
