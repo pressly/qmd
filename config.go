@@ -22,10 +22,9 @@ type Config struct {
 }
 
 type authConfig struct {
-	Enabled    bool
-	Username   string
-	Password   string
-	AuthString string
+	Enabled  bool
+	Username string
+	Password string
 }
 
 type loggingConfig struct {
@@ -107,9 +106,6 @@ func (c *Config) Setup() error {
 
 	// Redirect standard logger
 	stdlog.SetOutput(&logProxyWriter{})
-
-	// Setup auth
-	c.Auth.AuthString = fmt.Sprintf("%s:%s", config.Auth.Username, config.Auth.Password)
 
 	return nil
 }

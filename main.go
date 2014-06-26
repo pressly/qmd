@@ -7,6 +7,7 @@ import (
 	"github.com/bitly/go-nsq"
 	"github.com/garyburd/redigo/redis"
 	"github.com/op/go-logging"
+	"github.com/pressly/gohttpware"
 	"github.com/zenazn/goji/graceful"
 	"github.com/zenazn/goji/web"
 	"github.com/zenazn/goji/web/middleware"
@@ -63,8 +64,10 @@ func main() {
 
 	w.Use(middleware.Logger)
 	w.Use(middleware.Recoverer)
-	w.Use(BasicAuth)
-	w.Use(AllowSlash)
+	if config.Auth.Enabled {
+		w.Use(httpware.BasicAuth(config.Auth.Username, config.Auth.Password, "Restricted"))
+	}
+	w.Use(httpware.AllowSlash)
 
 	w.Get("/", ServiceRoot)
 	w.Post("/", ServiceRoot)
