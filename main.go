@@ -67,7 +67,7 @@ func main() {
 	w.Use(middleware.Logger)
 	w.Use(middleware.Recoverer)
 	if config.Auth.Enabled {
-		w.Use(auth.BasicAuth(config.Auth.Username, config.Auth.Password, "Restricted"))
+		w.Use(auth.BasicAuth(config.Auth.Username, config.Auth.Password))
 	}
 	w.Use(route.AllowSlash)
 
