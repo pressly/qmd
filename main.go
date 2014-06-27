@@ -1,8 +1,12 @@
 package main
 
 import (
+	"encoding/base64"
 	"flag"
+	"fmt"
+	"net/http"
 
+	"strings"
 	"syscall"
 
 	"github.com/bitly/go-nsq"
@@ -67,7 +71,36 @@ func main() {
 	w.Use(middleware.Logger)
 	w.Use(middleware.Recoverer)
 	if config.Auth.Enabled {
-		w.Use(auth.BasicAuth(config.Auth.Username, config.Auth.Password))
+		basicAuthWithRedis := func(r *http.Request, s []string) bool {
+			user, pass := s[0], s[1]
+			check, err := checkRedisUser(user)
+			if err != nil || check != true {
+				log.Error(err.Error())
+				return false
+			}
+
+			authString := fmt.Sprintf("%s:%s", user, pass)
+			auth := r.Header.Get("Authorization")
+			if !strings.HasPrefix(auth, "Basic ") {
+				return false
+			}
+			p, err := base64.StdEncoding.DecodeString(auth[6:])
+			if err != nil || string(p) != authString {
+				err = failRedisUser(user)
+				if err != nil {
+					log.Error(err.Error())
+				}
+				return false
+			}
+			return true
+		}
+
+		w.Use(auth.Wrap(
+			basicAuthWithRedis,
+			"Restricted",
+			config.Auth.Username,
+			config.Auth.Password,
+		))
 	}
 	w.Use(route.AllowSlash)
 
