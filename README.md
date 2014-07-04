@@ -29,6 +29,17 @@ Then you will need to start up Redis and NSQ. QMD can then be started with the c
 qmd -config-file <path to config file>
 ```
 
+# Development
+
+```
+$ go get -u github.com/nitrous-io/goop
+$ goop install
+
+$ goop go build
+or
+$ go install github.com/pilu/fresh
+$ goop exec fresh
+```
 
 # API
 
