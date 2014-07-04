@@ -70,6 +70,7 @@ func main() {
 
 	w.Use(middleware.Logger)
 	w.Use(middleware.Recoverer)
+	w.Use(Heartbeat)
 	if config.Auth.Enabled {
 		basicAuthWithRedis := func(r *http.Request, s []string) bool {
 			user, pass := s[0], s[1]
@@ -95,12 +96,13 @@ func main() {
 			return true
 		}
 
-		w.Use(auth.Wrap(
+		authFunc := auth.Wrap(
 			basicAuthWithRedis,
 			"Restricted",
 			config.Auth.Username,
 			config.Auth.Password,
-		))
+		)
+		w.Use(authFunc)
 	}
 	w.Use(route.AllowSlash)
 
