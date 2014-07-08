@@ -25,6 +25,9 @@ _testmain.go
 # User added ignores
 Vagrantfile
 .vagrant
-qmd-server/qmd-server
-qmd-worker/qmd-worker
-qmd-worker/scripts
+.vendor
+qmd
+config.toml
+tmp
+jobs
+store
