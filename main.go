@@ -75,8 +75,12 @@ func main() {
 		basicAuthWithRedis := func(r *http.Request, s []string) bool {
 			user, pass := s[0], s[1]
 			check, err := checkRedisUser(user)
-			if err != nil || check != true {
+			if err != nil {
 				log.Error(err.Error())
+				return false
+			}
+			if check != true {
+				log.Error("User: %s is blocked", user)
 				return false
 			}
 
