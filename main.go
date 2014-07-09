@@ -72,8 +72,23 @@ func main() {
 	w.Use(middleware.Recoverer)
 	w.Use(Heartbeat)
 	if config.Auth.Enabled {
-		basicAuthWithRedis := func(r *http.Request, s []string) bool {
-			user, pass := s[0], s[1]
+		basicAuthWithRedis := func(r *http.Request, secrets []string) bool {
+			var err error
+			secret := fmt.Sprintf("%s:%s", secrets[0], secrets[1])
+
+			auth := r.Header.Get("Authorization")
+			prefix := "Basic "
+			if !strings.HasPrefix(auth, prefix) {
+				return false
+			}
+			givenSecret := auth[len(prefix):]
+			decodedSecret, err := base64.StdEncoding.DecodeString(givenSecret)
+			if err != nil {
+				log.Error(err.Error())
+				return false
+			}
+
+			user := strings.Split(string(decodedSecret), ":")[0]
 			check, err := checkRedisUser(user)
 			if err != nil {
 				log.Error(err.Error())
@@ -84,20 +99,13 @@ func main() {
 				return false
 			}
 
-			authString := fmt.Sprintf("%s:%s", user, pass)
-			auth := r.Header.Get("Authorization")
-			if !strings.HasPrefix(auth, "Basic ") {
-				return false
+			if string(decodedSecret) == secret {
+				return true
 			}
-			p, err := base64.StdEncoding.DecodeString(auth[6:])
-			if err != nil || string(p) != authString {
-				err = failRedisUser(user)
-				if err != nil {
-					log.Error(err.Error())
-				}
-				return false
+			if err := failRedisUser(user); err != nil {
+				log.Error(err.Error())
 			}
-			return true
+			return false
 		}
 
 		authFunc := auth.Wrap(
