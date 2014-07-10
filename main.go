@@ -70,7 +70,7 @@ func main() {
 
 	w.Use(middleware.Logger)
 	w.Use(middleware.Recoverer)
-	w.Use(Heartbeat)
+	w.Use(route.Heartbeat)
 	if config.Auth.Enabled {
 		basicAuthWithRedis := func(r *http.Request, secrets []string) bool {
 			var err error
