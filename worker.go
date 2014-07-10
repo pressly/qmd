@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"time"
 
 	"github.com/bitly/go-nsq"
 )
@@ -22,6 +23,8 @@ type Worker struct {
 	QueueAddresses  []string
 	LookupAddresses []string
 	WhiteList       map[string]bool
+
+	workChan chan *nsq.Message
 }
 
 func NewWorker(c Config) (worker Worker, err error) {
@@ -45,6 +48,7 @@ func NewWorker(c Config) (worker Worker, err error) {
 
 	worker.Consumer = consumer
 	worker.ReloadConsumer = rConsumer
+	worker.workChan = make(chan *nsq.Message, worker.Throughput)
 
 	// Generate whitelist of allowed scripts.
 	path := path.Join(config.Worker.ScriptDir, config.Worker.WhiteList)
@@ -101,45 +105,8 @@ func (w *Worker) LoadWhiteList(path string) error {
 }
 
 func (w *Worker) JobRequestHandler(m *nsq.Message) error {
-	job, err := NewJob(m.Body)
-	if err != nil {
-		log.Error("Couldn't create Job: %s", err.Error())
-		return err
-	}
-	log.Info("Dequeued Job %d", job.ID)
-
-	// Check if Job is already being executed
-	success, err := setRedisID(job.ID)
-	if err != nil {
-		log.Error("Couldn't continue with Job #%d, aborting: %s", job.ID, err.Error())
-		if !success {
-			unsetRedisID(job.ID)
-		}
-		return err
-	}
-	if !success {
-		log.Info("Job #%d being handled, aborting!", job.ID)
-		return err
-	}
-
-	// Try and run script
-	if len(w.WhiteList) == 0 || w.WhiteList[job.Script] {
-		resultChan := make(chan error, 1)
-		go job.Execute(resultChan)
-		err := <-resultChan
-		if err != nil {
-			job.Status = STATUS_ERR
-		} else {
-			job.Status = STATUS_OK
-		}
-	} else {
-		msg := fmt.Sprintf("%s is not on script whitelist", job.Script)
-		job.ExecLog = msg
-	}
-
-	log.Info(job.ExecLog)
-	job.Log()
-	job.Callback()
+	m.DisableAutoResponse()
+	w.workChan <- m
 	return nil
 }
 
@@ -154,11 +121,7 @@ func (w *Worker) ReloadRequestHandler(m *nsq.Message) error {
 	return nil
 }
 
-func (w *Worker) Run() {
-	// Add the message handler.
-	w.Consumer.AddConcurrentHandlers(nsq.HandlerFunc(w.JobRequestHandler), w.Throughput)
-	w.ReloadConsumer.AddHandler(nsq.HandlerFunc(w.ReloadRequestHandler))
-
+func (w *Worker) Connect() error {
 	var err error
 
 	// Connect consumers to NSQLookupd
@@ -166,36 +129,117 @@ func (w *Worker) Run() {
 		log.Info("Connecting Consumer to the following NSQLookupds %s", w.LookupAddresses)
 		err = w.Consumer.ConnectToNSQLookupds(w.LookupAddresses)
 		if err != nil {
-			log.Error(err.Error())
+			return err
 		}
 
 		log.Info("Connecting ReloadConsumer to the following NSQLookupds %s", w.LookupAddresses)
 		err = w.ReloadConsumer.ConnectToNSQLookupds(w.LookupAddresses)
 		if err != nil {
-			log.Error(err.Error())
+			return err
 		}
-	} else {
-		// Connect consumers to NSQD
-		if w.QueueAddresses != nil && len(w.QueueAddresses) != 0 {
-			log.Info("Connecting Consumer to the following NSQDs %s", w.QueueAddresses)
-			err = w.Consumer.ConnectToNSQDs(w.QueueAddresses)
-			if err != nil {
-				log.Error(err.Error())
+		return nil
+	}
+	// Connect consumers to NSQD
+	if w.QueueAddresses != nil && len(w.QueueAddresses) != 0 {
+		log.Info("Connecting Consumer to the following NSQDs %s", w.QueueAddresses)
+		err = w.Consumer.ConnectToNSQDs(w.QueueAddresses)
+		if err != nil {
+			return err
+		}
+
+		log.Info("Connecting ReloadConsumer to the following NSQDs %s", w.QueueAddresses)
+		err = w.ReloadConsumer.ConnectToNSQDs(w.QueueAddresses)
+		if err != nil {
+			return err
+		}
+		return nil
+	}
+	return err
+}
+
+func (w *Worker) Process() {
+	for m := range w.workChan {
+		// Tell NSQD to reset time until done channel is non-empty.
+		// Runs every 30 seconds.
+		done := make(chan bool, 1)
+		go func() {
+			defer close(done)
+			for {
+				select {
+				case <-done:
+					return
+				default:
+					time.Sleep(30 * time.Second)
+					m.Touch()
+				}
+			}
+		}()
+
+		// Start processing Job
+		job, err := NewJob(m.Body)
+		if err != nil {
+			log.Error("Couldn't create Job: %s", err.Error())
+			m.Requeue(30 * time.Second)
+			done <- true
+			continue
+		}
+		log.Info("Dequeued Job %d", job.ID)
+
+		// Check if Job is already being executed
+		success, err := setRedisID(job.ID)
+		if err != nil {
+			log.Error("Couldn't continue with Job #%d, aborting: %s", job.ID, err.Error())
+			if !success {
+				unsetRedisID(job.ID)
+			}
+			m.Requeue(30 * time.Second)
+			done <- true
+			continue
+		}
+		if !success {
+			// Try and run script
+			if len(w.WhiteList) == 0 || w.WhiteList[job.Script] {
+				resultChan := make(chan error, 1)
+				job.Execute(resultChan)
+				err := <-resultChan
+				if err != nil {
+					job.Status = STATUS_ERR
+				} else {
+					job.Status = STATUS_OK
+				}
+			} else {
+				msg := fmt.Sprintf("%s is not on script whitelist", job.Script)
+				job.ExecLog = msg
 			}
 
-			log.Info("Connecting ReloadConsumer to the following NSQDs %s", w.QueueAddresses)
-			err = w.ReloadConsumer.ConnectToNSQDs(w.QueueAddresses)
-			if err != nil {
-				log.Error(err.Error())
-			}
+			log.Info(job.ExecLog)
+			job.Log()
+			job.Callback()
 		} else {
-			log.Fatal("Couldn't connect to any NSQLookupd: %s or NSQD: %s nodes", w.LookupAddresses, w.QueueAddresses)
+			log.Info("Job #%d being handled, aborting!", job.ID)
 		}
+		m.Finish()
+		done <- true
 	}
 }
 
 func (w *Worker) Stop() {
 	w.Consumer.Stop()
 	w.ReloadConsumer.Stop()
+	close(w.workChan)
 	return
+}
+
+func (w *Worker) Run() {
+	// Add the message handler.
+	w.Consumer.AddConcurrentHandlers(nsq.HandlerFunc(w.JobRequestHandler), w.Throughput)
+	w.ReloadConsumer.AddHandler(nsq.HandlerFunc(w.ReloadRequestHandler))
+
+	err := w.Connect()
+	if err != nil {
+		w.Stop()
+		log.Error(err.Error())
+		log.Fatal("Couldn't connect to any NSQLookupd: %s or NSQD: %s nodes", w.LookupAddresses, w.QueueAddresses)
+	}
+	go w.Process()
 }
