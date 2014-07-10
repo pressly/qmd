@@ -157,70 +157,69 @@ func (w *Worker) Connect() error {
 	return err
 }
 
-func (w *Worker) Process() {
-	for m := range w.workChan {
-		// Tell NSQD to reset time until done channel is non-empty.
-		// Runs every 30 seconds.
-		done := make(chan bool, 1)
-		go func() {
-			defer close(done)
-			for {
-				select {
-				case <-done:
-					return
-				default:
-					time.Sleep(30 * time.Second)
-					m.Touch()
-				}
+func (w *Worker) Process(m *nsq.Message) {
+	// Tell NSQD to reset time until done channel is non-empty.
+	// Runs every 30 seconds.
+	done := make(chan bool, 1)
+	go func() {
+		defer close(done)
+		for {
+			select {
+			case <-done:
+				return
+			default:
+				time.Sleep(30 * time.Second)
+				m.Touch()
 			}
-		}()
-
-		// Start processing Job
-		job, err := NewJob(m.Body)
-		if err != nil {
-			log.Error("Couldn't create Job: %s", err.Error())
-			m.Requeue(30 * time.Second)
-			done <- true
-			continue
 		}
-		log.Info("Dequeued Job %d", job.ID)
+	}()
 
-		// Check if Job is already being executed
-		success, err := setRedisID(job.ID)
-		if err != nil {
-			log.Error("Couldn't continue with Job #%d, aborting: %s", job.ID, err.Error())
-			if !success {
-				unsetRedisID(job.ID)
-			}
-			m.Requeue(30 * time.Second)
-			done <- true
-			continue
-		}
-		if !success {
-			// Try and run script
-			if len(w.WhiteList) == 0 || w.WhiteList[job.Script] {
-				resultChan := make(chan error, 1)
-				job.Execute(resultChan)
-				err := <-resultChan
-				if err != nil {
-					job.Status = STATUS_ERR
-				} else {
-					job.Status = STATUS_OK
-				}
-			} else {
-				msg := fmt.Sprintf("%s is not on script whitelist", job.Script)
-				job.ExecLog = msg
-			}
-
-			log.Info(job.ExecLog)
-			job.Log()
-			job.Callback()
-		} else {
-			log.Info("Job #%d being handled, aborting!", job.ID)
-		}
-		m.Finish()
+	// Start processing Job
+	job, err := NewJob(m.Body)
+	if err != nil {
+		log.Error("Couldn't create Job: %s", err.Error())
+		m.Requeue(30 * time.Second)
+		log.Info("Job %d requeued", job.ID)
 		done <- true
 	}
+	log.Info("Dequeued Job %d", job.ID)
+
+	// Check if Job is already being executed
+	success, err := setRedisID(job.ID)
+	if err != nil {
+		log.Error("Couldn't continue with Job #%d, aborting: %s", job.ID, err.Error())
+		if !success {
+			unsetRedisID(job.ID)
+		}
+		m.Requeue(30 * time.Second)
+		log.Info("Job %d requeued", job.ID)
+		done <- true
+	}
+	if success {
+		// Try and run script
+		if len(w.WhiteList) == 0 || w.WhiteList[job.Script] {
+			resultChan := make(chan error, 1)
+			job.Execute(resultChan)
+			err := <-resultChan
+			if err != nil {
+				job.Status = STATUS_ERR
+			} else {
+				job.Status = STATUS_OK
+			}
+		} else {
+			msg := fmt.Sprintf("%s is not on script whitelist", job.Script)
+			job.ExecLog = msg
+		}
+
+		log.Info(job.ExecLog)
+		job.Log()
+		job.Callback()
+	} else {
+		log.Info("Job #%d being handled, aborting!", job.ID)
+	}
+	m.Finish()
+	log.Info("Job %d finished", job.ID)
+	done <- true
 }
 
 func (w *Worker) Stop() {
@@ -241,5 +240,10 @@ func (w *Worker) Run() {
 		log.Error(err.Error())
 		log.Fatal("Couldn't connect to any NSQLookupd: %s or NSQD: %s nodes", w.LookupAddresses, w.QueueAddresses)
 	}
-	go w.Process()
+	for {
+		select {
+		case m := <-w.workChan:
+			go w.Process(m)
+		}
+	}
 }
