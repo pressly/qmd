@@ -31,3 +31,10 @@ config.toml
 tmp
 jobs
 store
+
+# NSQ and Deploy files
+nohup.out
+nsqd*
+reload*
+testing*
+dump.rdb
