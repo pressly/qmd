@@ -155,9 +155,9 @@ func (w *Worker) ReloadRequestHandler(m *nsq.Message) error {
 }
 
 func (w *Worker) Run() {
-	// Set the message handler.
-	w.Consumer.SetConcurrentHandlers(nsq.HandlerFunc(w.JobRequestHandler), w.Throughput)
-	w.ReloadConsumer.SetHandler(nsq.HandlerFunc(w.ReloadRequestHandler))
+	// Add the message handler.
+	w.Consumer.AddConcurrentHandlers(nsq.HandlerFunc(w.JobRequestHandler), w.Throughput)
+	w.ReloadConsumer.AddHandler(nsq.HandlerFunc(w.ReloadRequestHandler))
 
 	var err error
 
