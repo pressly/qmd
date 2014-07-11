@@ -224,7 +224,7 @@ func (w *Worker) Process(m *nsq.Message) {
 func (w *Worker) Stop() {
 	w.Consumer.Stop()
 	w.ReloadConsumer.Stop()
-	close(w.workChan)
+	defer close(w.workChan)
 	return
 }
 
