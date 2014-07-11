@@ -137,7 +137,7 @@ func main() {
 		redisDB.Close()
 	})
 
-	graceful.AddSignal(syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
+	graceful.AddSignal(syscall.SIGINT, syscall.SIGTERM)
 
 	err = graceful.ListenAndServe(config.ListenOnAddr, w)
 	if err != nil {
