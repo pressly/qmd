@@ -167,8 +167,7 @@ func (w *Worker) Process(m *nsq.Message) {
 			select {
 			case <-done:
 				return
-			default:
-				time.Sleep(30 * time.Second)
+			case <-time.After(30 * time.Second):
 				m.Touch()
 			}
 		}
@@ -178,7 +177,7 @@ func (w *Worker) Process(m *nsq.Message) {
 	job, err := NewJob(m.Body)
 	if err != nil {
 		log.Error("Couldn't create Job: %s", err.Error())
-		m.Requeue(30 * time.Second)
+		m.RequeueWithoutBackoff(-1)
 		log.Info("Job %d requeued", job.ID)
 		done <- true
 	}
@@ -191,7 +190,7 @@ func (w *Worker) Process(m *nsq.Message) {
 		if !success {
 			unsetRedisID(job.ID)
 		}
-		m.Requeue(30 * time.Second)
+		m.RequeueWithoutBackoff(-1)
 		log.Info("Job %d requeued", job.ID)
 		done <- true
 	}
@@ -240,10 +239,7 @@ func (w *Worker) Run() {
 		log.Error(err.Error())
 		log.Fatal("Couldn't connect to any NSQLookupd: %s or NSQD: %s nodes", w.LookupAddresses, w.QueueAddresses)
 	}
-	for {
-		select {
-		case m := <-w.workChan:
-			go w.Process(m)
-		}
+	for m := range w.workChan {
+		go w.Process(m)
 	}
 }
