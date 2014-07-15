@@ -17,6 +17,7 @@ const (
 )
 
 type Worker struct {
+	Name            string
 	Consumer        *nsq.Consumer
 	ReloadConsumer  *nsq.Consumer
 	Throughput      int
@@ -28,6 +29,7 @@ type Worker struct {
 }
 
 func NewWorker(c Config) (worker Worker, err error) {
+	worker.Name = fmt.Sprintf("worker-%s", NewID())
 	worker.Throughput = c.Worker.Throughput
 	worker.QueueAddresses = c.Worker.QueueAddresses
 	worker.LookupAddresses = c.Worker.LookupAddresses
@@ -40,7 +42,7 @@ func NewWorker(c Config) (worker Worker, err error) {
 		return worker, err
 	}
 
-	rConsumer, err := nsq.NewConsumer("reload", c.Worker.Channel, nsq.NewConfig())
+	rConsumer, err := nsq.NewConsumer("reload", worker.Name, nsq.NewConfig())
 	if err != nil {
 		log.Error(err.Error())
 		return worker, err
@@ -224,7 +226,7 @@ func (w *Worker) Process(m *nsq.Message) {
 func (w *Worker) Stop() {
 	w.Consumer.Stop()
 	w.ReloadConsumer.Stop()
-	defer close(w.workChan)
+	close(w.workChan)
 	return
 }
 
