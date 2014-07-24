@@ -1,147 +1,242 @@
-package main
+package qmd
 
 import (
-	"encoding/base64"
-	"flag"
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"net/http"
-
-	"strings"
-	"syscall"
+	"runtime"
+	"sync"
+	"time"
 
 	"github.com/bitly/go-nsq"
-	"github.com/garyburd/redigo/redis"
-	"github.com/op/go-logging"
-	"github.com/pressly/gohttpware/auth"
-	"github.com/pressly/gohttpware/route"
-	"github.com/zenazn/goji/graceful"
-	"github.com/zenazn/goji/web"
-	"github.com/zenazn/goji/web/middleware"
 )
 
-var (
-	configPath = flag.String("config-file", "./config.toml", "path to qmd config file")
-	log        = logging.MustGetLogger("qmd")
+var sMutex = &sync.Mutex{}
 
-	config   Config
+type Server struct {
+	Name        string
+	TTL         time.Duration
+	RequestChan chan Request
+	ResultChan  chan []byte
+
+	Requests map[string]chan []byte
+
 	producer *nsq.Producer
 	consumer *nsq.Consumer
-	redisDB  *redis.Pool
-)
+	DB       *DB
 
-const (
-	VERSION = "0.1.0"
-)
+	queue *QueueConfig
+}
 
-func main() {
+func NewServer(sc *ServerConfig) (*Server, error) {
+	var server Server
 	var err error
 
-	flag.Parse()
+	server.Name = sc.Name
+	server.TTL = sc.TTL
+	server.queue = sc.Queue
+	server.Requests = make(map[string]chan []byte)
 
-	// Server config
-	err = config.Load(*configPath)
+	producer, err := nsq.NewProducer(server.queue.HostNSQDAddr, nsq.NewConfig())
 	if err != nil {
-		log.Fatal(err)
+		return &server, err
+	}
+	server.producer = producer
+
+	channelName := fmt.Sprintf("%s#ephemeral", server.Name)
+	consumer, err := nsq.NewConsumer("result", channelName, nsq.NewConfig())
+	if err != nil {
+		return &server, err
+	}
+	server.consumer = consumer
+
+	server.RequestChan = make(chan Request)
+	server.ResultChan = make(chan []byte)
+	server.DB = NewDB(sc.DBAddr)
+
+	if err = SetupLogging(sc.Logging); err != nil {
+		return &server, err
 	}
 
-	err = config.Setup()
-	if err != nil {
-		log.Fatal(err)
+	log.Info("Server created as %s", server.Name)
+	return &server, nil
+}
+
+func (s Server) Reload() error {
+	doneChan := make(chan *nsq.ProducerTransaction)
+	err := s.producer.PublishAsync("command", []byte("reload"), doneChan)
+	<-doneChan
+	return err
+}
+
+func (s Server) Queue(script string, data []byte) (<-chan []byte, error) {
+	var err error
+
+	req := Request{
+		ID:        NewID(),
+		Script:    script,
+		Status:    StatusQUEUED,
+		StartTime: time.Now(),
+	}
+	if err = json.Unmarshal(data, &req); err != nil {
+		return nil, err
 	}
 
-	log.Info("=====> [ QMD v%s ] <=====", VERSION)
+	ch := make(chan []byte, 1)
+	sMutex.Lock()
+	s.Requests[req.ID] = ch
+	sMutex.Unlock()
+	runtime.Gosched()
+	s.RequestChan <- req
 
-	// Setup facilities
-	producer, err = nsq.NewProducer(config.QueueAddr, nsq.NewConfig())
-	if err != nil {
-		log.Fatal(err)
+	// Asynchronous call
+	if req.CallbackURL != "" {
+		newCh := make(chan []byte, 1)
+		defer close(newCh)
+		reply := <-ch
+		newCh <- reply
+		go callback(req.CallbackURL, ch)
+		return newCh, nil
 	}
-	redisDB = newRedisPool(config.RedisAddr)
+	return ch, nil
+}
 
-	// Script processing worker
-	worker, err := NewWorker(config)
-	if err != nil {
-		log.Fatal(err)
+func (s Server) Run() error {
+	var err error
+
+	s.consumer.AddHandler(nsq.HandlerFunc(s.resultHandler))
+	if err = ConnectConsumer(s.queue, s.consumer); err != nil {
+		s.Exit()
+		return err
 	}
-	go worker.Run()
 
-	// Http server
-	w := web.New()
-
-	w.Use(middleware.Logger)
-	w.Use(middleware.Recoverer)
-	w.Use(route.Heartbeat)
-	if config.Auth.Enabled {
-		basicAuthWithRedis := func(r *http.Request, secrets []string) bool {
-			var err error
-			secret := fmt.Sprintf("%s:%s", secrets[0], secrets[1])
-
-			auth := r.Header.Get("Authorization")
-			prefix := "Basic "
-			if !strings.HasPrefix(auth, prefix) {
-				return false
-			}
-			givenSecret := auth[len(prefix):]
-			decodedSecret, err := base64.StdEncoding.DecodeString(givenSecret)
-			if err != nil {
-				log.Error(err.Error())
-				return false
-			}
-
-			user := strings.Split(string(decodedSecret), ":")[0]
-			check, err := checkRedisUser(user)
-			if err != nil {
-				log.Error(err.Error())
-				return false
-			}
-			if check != true {
-				log.Error("User: %s is blocked", user)
-				return false
-			}
-
-			if string(decodedSecret) == secret {
-				return true
-			}
-			if err := failRedisUser(user); err != nil {
-				log.Error(err.Error())
-			}
-			return false
+	go func() {
+		for req := range s.RequestChan {
+			go s.processRequest(req)
 		}
+	}()
 
-		authFunc := auth.Wrap(
-			basicAuthWithRedis,
-			"Restricted",
-			config.Auth.Username,
-			config.Auth.Password,
-		)
-		w.Use(authFunc)
+	go func() {
+		for res := range s.ResultChan {
+			go s.processResult(res)
+		}
+	}()
+
+	return nil
+}
+
+func (s Server) Exit() {
+	s.producer.Stop()
+	s.consumer.Stop()
+	defer close(s.RequestChan)
+	defer close(s.ResultChan)
+	for _, ch := range s.Requests {
+		go close(ch)
 	}
-	w.Use(route.AllowSlash)
+}
 
-	w.Get("/scripts", GetAllScripts)
-	w.Put("/scripts", ReloadScripts)
-	w.Post("/scripts/:name", RunScript)
-	w.Get("/scripts/:name/logs", GetAllLogs)
-	w.Get("/scripts/:name/logs/:id", GetLog)
-	w.Handle("/*", AdminProxy)
+// Message handler(s)
 
-	// Spin up the server with graceful hooks
-	graceful.PreHook(func() {
-		log.Info("Stopping queue producer")
-		producer.Stop()
+func (s Server) resultHandler(m *nsq.Message) error {
+	s.ResultChan <- m.Body
+	return nil
+}
 
-		log.Info("Stopping queue workers")
-		worker.Stop()
+// Helper functions
 
-		log.Info("Closing redis connections")
-		redisDB.Close()
-	})
+func (s Server) processRequest(r Request) {
+	var err error
 
-	graceful.AddSignal(syscall.SIGINT, syscall.SIGTERM)
-
-	err = graceful.ListenAndServe(config.ListenOnAddr, w)
+	data, err := r.WriteJSON()
 	if err != nil {
-		log.Fatal(err)
+		log.Error(err.Error())
+		return
 	}
-	graceful.Wait()
+
+	doneChan := make(chan *nsq.ProducerTransaction)
+	if err = s.producer.PublishAsync("job", data, doneChan); err != nil {
+		log.Error(err.Error())
+		return
+	}
+	<-doneChan
+	log.Info("Request queued as %s", r.ID)
+	go s.startTTL(r)
+
+	sMutex.Lock()
+	ch, exist := s.Requests[r.ID]
+	sMutex.Unlock()
+	runtime.Gosched()
+	if exist && r.CallbackURL != "" {
+		ch <- data
+	}
+}
+
+func (s Server) processResult(data []byte) {
+	var r Job
+	if err := json.Unmarshal(data, &r); err != nil {
+		log.Error(err.Error())
+		return
+	}
+	s.finish(r.Script, r.ID, data)
+}
+
+func (s Server) startTTL(req Request) {
+	req.FinishTime = <-time.After(s.TTL)
+	sMutex.Lock()
+	_, exists := s.Requests[req.ID]
+	sMutex.Unlock()
+	runtime.Gosched()
+	if !exists {
+		return
+	}
+	req.Duration = fmt.Sprintf("%f", req.FinishTime.Sub(req.StartTime).Seconds())
+	req.Status = StatusTIMEOUT
+
+	data, err := json.Marshal(&req)
+	if err != nil {
+		log.Error(err.Error())
+	}
+	go s.killJob(req.ID)
+	doneChan := make(chan *nsq.ProducerTransaction)
+	if err := s.producer.PublishAsync("result", data, doneChan); err != nil {
+		log.Error(err.Error())
+	}
+	<-doneChan
+}
+
+func (s Server) finish(script, id string, data []byte) {
+	sMutex.Lock()
+	ch, exist := s.Requests[id]
+	sMutex.Unlock()
+	runtime.Gosched()
+	if exist {
+		defer func() {
+			sMutex.Lock()
+			delete(s.Requests, id)
+			sMutex.Unlock()
+			runtime.Gosched()
+		}()
+		defer close(ch)
+		ch <- data
+		s.DB.SetLog(script, id, string(data))
+	}
+}
+
+func (s Server) killJob(id string) {
+	doneChan := make(chan *nsq.ProducerTransaction)
+	cmd := fmt.Sprintf("kill:%s", id)
+	if err := s.producer.PublishAsync("command", []byte(cmd), doneChan); err != nil {
+		log.Error(err.Error())
+	}
+	<-doneChan
+	log.Info("Sent kill request for %s", id)
+}
+
+func callback(url string, ch chan []byte) {
+	buf := bytes.NewBuffer(<-ch)
+	_, err := http.Post(url, "application/json", buf)
+	if err != nil {
+		log.Error(err.Error())
+	}
 }
