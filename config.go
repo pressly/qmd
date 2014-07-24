@@ -1,137 +1,90 @@
-package main
+package qmd
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
-
-	stdlog "log"
-
-	"github.com/BurntSushi/toml"
-	"github.com/op/go-logging"
+	"time"
 )
 
-type Config struct {
-	Topic        string
-	ListenOnAddr string
-	QueueAddr    string
-	AdminAddr    string
-	RedisAddr    string
-	Auth         authConfig    `toml:"auth"`
-	Logging      loggingConfig `toml:"logging"`
-	Worker       workerConfig  `toml:"worker"`
+type baseConfig struct {
+	Name    string         `toml:"name"`
+	Queue   *QueueConfig   `toml:"queue"`
+	Logging *LoggingConfig `toml:"logging"`
 }
 
-type authConfig struct {
-	Enabled  bool
-	Username string
-	Password string
+type ServerConfig struct {
+	baseConfig
+
+	// Basic Options
+	ListenOnAddr string        `toml:"address"`
+	TTL          time.Duration `toml:"ttl"`
+	DBAddr       string        `toml:"database_address"`
+	AdminAddr    string        `toml:"admin_address"`
+
+	// Auth Options
+	DisableAuth bool   `toml:"disable_auth"`
+	Username    string `toml:"username"`
+	Password    string `toml:"password"`
 }
 
-type loggingConfig struct {
-	LogLevel    string
-	LogBackends []string
-}
-
-type workerConfig struct {
-	Channel         string
-	QueueAddresses  []string
-	LookupAddresses []string
-	Throughput      int
-	ScriptDir       string
-	WorkingDir      string
-	StoreDir        string
-	WhiteList       string
-	KeepTemp        bool
-}
-
-// Find and load config file by path
-func (c *Config) Load(p string) error {
-	var err error
-
-	if p == "" {
-		p = "./config.toml"
+func (sc *ServerConfig) Clean() error {
+	if sc.Name == "" {
+		sc.Name = fmt.Sprintf("server-%s", NewID())
 	}
-	p, err = filepath.Abs(p)
-	if err != nil {
-		return err
+	if sc.TTL <= 0 {
+		sc.TTL = 5 * time.Minute
 	}
-
-	if _, err = os.Stat(p); os.IsNotExist(err) {
-		return fmt.Errorf("No config file found at %s", p)
-	}
-
-	_, err = toml.DecodeFile(p, &c)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func (c *Config) Setup() error {
-	// Clean paths
-	err := c.fixPaths()
-	if err != nil {
-		return err
-	}
-
-	// Setup logger
-	logging.SetFormatter(logging.MustStringFormatter("%{level} %{message}"))
-
-	var logBackends []logging.Backend
-	for _, lb := range config.Logging.LogBackends {
-		// TODO: test for starting with / or ./ and treat it
-		// as a file logger
-		// TODO: case insensitive stdout / syslog
-		switch lb {
-		case "STDOUT":
-			logBackend := logging.NewLogBackend(os.Stdout, "", stdlog.LstdFlags)
-			logBackends = append(logBackends, logBackend)
-		case "syslog":
-			logBackend, err := logging.NewSyslogBackend("qmd")
-			if err != nil {
-				return err
-			}
-			logBackends = append(logBackends, logBackend)
+	if !sc.DisableAuth {
+		if sc.Username == "" || sc.Password == "" {
+			return fmt.Errorf("Either username and password are missing")
 		}
 	}
-	if len(logBackends) > 0 {
-		logging.SetBackend(logBackends...)
-	}
-
-	logLevel, err := logging.LogLevel(config.Logging.LogLevel)
-	if err != nil {
+	if err := sc.Queue.Clean(); err != nil {
 		return err
 	}
-	logging.SetLevel(logLevel, "qmd")
-
-	// Redirect standard logger
-	stdlog.SetOutput(&logProxyWriter{})
-
+	sc.Logging.Clean()
 	return nil
 }
 
-func (c *Config) fixPaths() error {
+type WorkerConfig struct {
+	baseConfig
+
+	Throughput int    `toml:"throughput"`
+	ScriptDir  string `toml:"script_dir"`
+	WorkingDir string `toml:"working_dir"`
+	StoreDir   string `toml:"store_dir"`
+	Whitelist  string `toml:"whitelist"`
+	KeepTemp   bool   `toml:"keep_temp"`
+}
+
+func (wc *WorkerConfig) Clean() error {
 	var err error
 
-	c.Worker.ScriptDir, err = filepath.Abs(c.Worker.ScriptDir)
+	if wc.Name == "" {
+		wc.Name = fmt.Sprintf("worker-%s", NewID())
+	}
+
+	// Fix paths
+	wc.ScriptDir, err = filepath.Abs(wc.ScriptDir)
 	if err != nil {
 		return err
 	}
-	c.Worker.WorkingDir, err = filepath.Abs(c.Worker.WorkingDir)
+	wc.WorkingDir, err = filepath.Abs(wc.WorkingDir)
 	if err != nil {
 		return err
 	}
-	c.Worker.StoreDir, err = filepath.Abs(c.Worker.StoreDir)
+	wc.StoreDir, err = filepath.Abs(wc.StoreDir)
 	if err != nil {
 		return err
 	}
+	wc.Whitelist, err = filepath.Abs(wc.Whitelist)
+	if err != nil {
+		return err
+	}
+
+	if err := wc.Queue.Clean(); err != nil {
+		return err
+	}
+	wc.Logging.Clean()
 	return nil
-}
-
-type logProxyWriter struct{}
-
-func (l *logProxyWriter) Write(p []byte) (n int, err error) {
-	log.Info("%s", p)
-	return len(p), nil
 }
