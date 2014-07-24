@@ -31,6 +31,10 @@ config.toml
 tmp
 jobs
 store
+cmd/qmdserver/qmdserver
+cmd/qmdworker/qmdworker
+cmd/qmd_to_keen/qmd_to_keen
+cmd/qmd_to_slack/qmd_to_slack
 
 # NSQ and Deploy files
 nohup.out
