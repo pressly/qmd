@@ -1,4 +1,4 @@
-package main
+package qmd
 
 import (
 	"fmt"
@@ -7,20 +7,22 @@ import (
 	"github.com/garyburd/redigo/redis"
 )
 
-const (
-	LOG_SEQ_KEY string = "QMD_LOG_IDS"
-	LOGLIMIT    int    = 50
-	JOB_TIMEOUT int    = 900 // 15 minutes
-	BLOCKTIME   int    = 300 // 5 minutes
-	FAIL_LIMIT  int    = 7
-)
+const logTTL = 7 * 24 * time.Hour // 1 week
 
-func newRedisPool(server string) *redis.Pool {
-	return &redis.Pool{
+type DB struct {
+	*redis.Pool
+}
+
+type Conn struct {
+	redis.Conn
+}
+
+func NewDB(address string) *DB {
+	db := &redis.Pool{
 		MaxIdle:     3,
 		IdleTimeout: 240 * time.Second,
 		Dial: func() (redis.Conn, error) {
-			con, err := redis.Dial("tcp", server)
+			con, err := redis.Dial("tcp", address)
 			if err != nil {
 				return nil, err
 			}
@@ -31,101 +33,88 @@ func newRedisPool(server string) *redis.Pool {
 			return err
 		},
 	}
+	return &DB{db}
 }
 
-func setRedisID(id int) (bool, error) {
-	conn := redisDB.Get()
-	defer conn.Close()
-
-	var result bool
-	key := fmt.Sprintf("Job #%d", id)
-	success, err := redis.Bool(conn.Do("SETNX", key, id))
-	if err != nil {
-		log.Error(err.Error())
-		return result, err
-	}
-	if success {
-		result = true
-		conn.Do("EXPIRE", key, JOB_TIMEOUT)
-	}
-	return result, nil
+func (db DB) Open() *Conn {
+	return &Conn{db.Get()}
 }
 
-func unsetRedisID(id int) (bool, error) {
-	conn := redisDB.Get()
-	defer conn.Close()
+func (db DB) SetLog(script, id, data string) (bool, error) {
+	c := db.Open()
+	defer c.Close()
+	currentTime := time.Now()
+	defer db.trimLog(script, currentTime)
 
-	var result bool
-	numRemoved, err := redis.Int(conn.Do("DEL", fmt.Sprintf("Job #%d", id)))
+	// Add entry to database
+	c.Send("MULTI")
+	c.Send("HSET", script, id, data)
+	s := fmt.Sprintf("%s Logs", script)
+	c.Send("ZADD", s, currentTime.UnixNano(), id)
+	_, err := c.Do("EXEC")
 	if err != nil {
-		log.Error(err.Error())
-		return result, err
+		return false, err
 	}
-	if numRemoved > 0 {
-		result = true
-	}
-	return result, nil
-}
+	log.Info("Added %s to %s logs", id, script)
 
-func getRedisID() (int, error) {
-	conn := redisDB.Get()
-	defer conn.Close()
-
-	id, err := redis.Int(conn.Do("INCR", LOG_SEQ_KEY))
-	if err != nil {
-		log.Error(err.Error())
-		return id, err
-	}
-	return id, nil
-}
-
-func checkRedisUser(user string) (bool, error) {
-	conn := redisDB.Get()
-	defer conn.Close()
-
-	var result int
-	result, err := redis.Int(conn.Do("GET", user))
-	if err != nil {
-		_, e := conn.Do("SET", user, 0)
-		if e != nil {
-			return false, e
-		}
-		return false, nil
-	}
-	if result >= FAIL_LIMIT {
-		return false, nil
-	}
 	return true, nil
 }
 
-func failRedisUser(user string) error {
-	conn := redisDB.Get()
-	defer conn.Close()
-
-	var result int
-	result, err := redis.Int(conn.Do("INCR", user))
-	if err != nil {
-		log.Error(err.Error())
-		return err
-	}
-	if result >= FAIL_LIMIT {
-		_, err := setBlockTime(user)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
+func (db DB) GetLog(script, id string) (string, error) {
+	c := db.Open()
+	defer c.Close()
+	return redis.String(c.Do("HGET", script, id))
 }
 
-func setBlockTime(user string) (bool, error) {
-	conn := redisDB.Get()
-	defer conn.Close()
+func (db DB) GetLogs(script string, limit int) ([]string, error) {
+	c := db.Open()
+	defer c.Close()
 
-	var result bool
-	result, err := redis.Bool(conn.Do("EXPIRE", user, BLOCKTIME))
+	var start int
+	if limit > 0 {
+		start = -limit - 1
+	} else {
+		start = 0
+	}
+	key := fmt.Sprintf("%s Logs", script)
+	ids, err := redis.Strings(c.Do("ZRANGE", key, start, -1))
+	if err != nil {
+		return ids, err
+	}
+	c.Send("MULTI")
+	for _, id := range ids {
+		c.Send("HGET", script, id)
+	}
+	return redis.Strings(c.Do("EXEC"))
+}
+
+func (db DB) trimLog(script string, currentTime time.Time) {
+	c := db.Open()
+	defer c.Close()
+
+	key := fmt.Sprintf("%s Logs", script)
+
+	// Clean up old entries older than a logTTL
+	oldTime := currentTime.Add(-logTTL)
+	ids, err := redis.Strings(c.Do("ZRANGEBYSCORE", key, "-inf", oldTime.UnixNano()))
 	if err != nil {
 		log.Error(err.Error())
-		return result, err
+		return
 	}
-	return result, nil
+
+	if len(ids) > 0 {
+		c.Send("MULTI")
+		for _, id := range ids {
+			c.Send("ZREM", key, id)
+			c.Send("HDEL", script, id)
+		}
+		reply, err := redis.Values(c.Do("EXEC"))
+		if err != nil {
+			log.Error(err.Error())
+			return
+		}
+		log.Info("Trimmed %d old entries for %s", len(reply)/2, script)
+		return
+	}
+	log.Info("No logs to trim for %s", script)
 }
