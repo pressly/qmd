@@ -1,168 +1,168 @@
-package main
+package qmd
 
 import (
 	"bufio"
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"os"
-	"path"
+	"runtime"
+	"strings"
+	"sync"
 	"time"
 
 	"github.com/bitly/go-nsq"
 )
 
-const (
-	STATUS_OK  string = "OK"
-	STATUS_ERR string = "ERR"
-)
+var wMutex = &sync.Mutex{}
 
 type Worker struct {
-	Name            string
-	Consumer        *nsq.Consumer
-	ReloadConsumer  *nsq.Consumer
-	Throughput      int
-	QueueAddresses  []string
-	LookupAddresses []string
-	WhiteList       map[string]bool
+	Name       string
+	Throughput int
+	Jobs       map[string]*Job
 
+	queue         *QueueConfig
+	scriptDir     string
+	workingDir    string
+	storeDir      string
+	whitelist     map[string]bool
+	whitelistPath string
+	keepTemp      bool
+
+	jobConsumer     *nsq.Consumer
+	commandConsumer *nsq.Consumer
+
+	producer *nsq.Producer
 	workChan chan *nsq.Message
 }
 
-func NewWorker(c Config) (worker Worker, err error) {
-	worker.Name = fmt.Sprintf("worker-%s", NewID())
-	worker.Throughput = c.Worker.Throughput
-	worker.QueueAddresses = c.Worker.QueueAddresses
-	worker.LookupAddresses = c.Worker.LookupAddresses
+func NewWorker(wc *WorkerConfig) (*Worker, error) {
+	var err error
+	var worker Worker
 
-	conf := nsq.NewConfig()
-	conf.Set("max_in_flight", worker.Throughput)
-	consumer, err := nsq.NewConsumer(c.Topic, c.Worker.Channel, conf)
+	worker.Name = wc.Name
+	worker.Throughput = wc.Throughput
+	worker.Jobs = make(map[string]*Job)
+
+	worker.queue = wc.Queue
+	worker.scriptDir = wc.ScriptDir
+	worker.workingDir = wc.WorkingDir
+	worker.storeDir = wc.StoreDir
+
+	worker.whitelistPath = wc.Whitelist
+	err = worker.loadWhitelist()
 	if err != nil {
-		log.Error(err.Error())
-		return worker, err
+		return &worker, err
 	}
 
-	rConsumer, err := nsq.NewConsumer("reload", worker.Name, nsq.NewConfig())
+	cfg := nsq.NewConfig()
+	cfg.Set("max_in_flight", worker.Throughput)
+	jobConsumer, err := nsq.NewConsumer("job", "qmd-worker", cfg)
 	if err != nil {
-		log.Error(err.Error())
-		return worker, err
+		return &worker, err
+	}
+	worker.jobConsumer = jobConsumer
+
+	channelName := fmt.Sprintf("%s#ephemeral", worker.Name)
+	commandConsumer, err := nsq.NewConsumer("command", channelName, nsq.NewConfig())
+
+	if err != nil {
+		return &worker, err
+	}
+	worker.commandConsumer = commandConsumer
+
+	producer, err := nsq.NewProducer(worker.queue.HostNSQDAddr, nsq.NewConfig())
+	if err != nil {
+		return &worker, err
+	}
+	worker.producer = producer
+
+	worker.workChan = make(chan *nsq.Message)
+
+	if err = SetupLogging(wc.Logging); err != nil {
+		return &worker, err
 	}
 
-	worker.Consumer = consumer
-	worker.ReloadConsumer = rConsumer
-	worker.workChan = make(chan *nsq.Message, worker.Throughput)
-
-	// Generate whitelist of allowed scripts.
-	path := path.Join(config.Worker.ScriptDir, config.Worker.WhiteList)
-	err = worker.LoadWhiteList(path)
-	if err != nil {
-		log.Error(err.Error())
-		return worker, err
-	}
-
-	log.Info("Worker created watching scripts in %s", c.Worker.ScriptDir)
-	return worker, nil
+	log.Info("Worker created as %s watching %s", worker.Name, worker.whitelistPath)
+	return &worker, nil
 }
 
-func (w *Worker) LoadWhiteList(path string) error {
-	log.Debug("Loading scripts in %s", path)
-
-	var buf bytes.Buffer
-	whiteList := make(map[string]bool)
-	buf.WriteString(fmt.Sprintf("Whitelist: "))
-
-	fileInfo, err := os.Stat(path)
+func (w *Worker) Run() error {
+	var err error
+	// Add and connect the message handlers.
+	w.jobConsumer.AddConcurrentHandlers(nsq.HandlerFunc(w.jobHandler), w.Throughput)
+	err = ConnectConsumer(w.queue, w.jobConsumer)
 	if err != nil {
+		w.Exit()
 		return err
 	}
-	if fileInfo.IsDir() {
-		buf.WriteString(fmt.Sprintf("*"))
-	} else {
-		file, err := os.Open(path)
-		if err != nil {
-			return err
-		}
-		defer file.Close()
 
-		scanner := bufio.NewScanner(file)
-
-		for scanner.Scan() {
-			whiteList[scanner.Text()] = true
-		}
-		if err != nil {
-			log.Error(err.Error())
-			return err
-		}
-
-		err = scanner.Err()
-
-		for script := range whiteList {
-			buf.WriteString(fmt.Sprintf("%s ", script))
-		}
+	w.commandConsumer.AddHandler(nsq.HandlerFunc(w.commandHandler))
+	err = ConnectConsumer(w.queue, w.commandConsumer)
+	if err != nil {
+		w.Exit()
+		return err
 	}
 
-	w.WhiteList = whiteList
-	log.Debug(buf.String())
+	go func() {
+		for m := range w.workChan {
+			go w.process(m)
+		}
+	}()
 	return nil
 }
 
-func (w *Worker) JobRequestHandler(m *nsq.Message) error {
+func (w *Worker) Exit() {
+	w.jobConsumer.Stop()
+	w.commandConsumer.Stop()
+	w.producer.Stop()
+	close(w.workChan)
+}
+
+// Message handlers
+
+func (w *Worker) jobHandler(m *nsq.Message) error {
 	m.DisableAutoResponse()
 	w.workChan <- m
 	return nil
 }
 
-func (w *Worker) ReloadRequestHandler(m *nsq.Message) error {
-	whitelistPath := path.Clean(string(m.Body))
-	err := w.LoadWhiteList(whitelistPath)
-	if err != nil {
-		log.Error("Failed to reload whitelist from %s", whitelistPath)
-		return err
+func (w *Worker) commandHandler(m *nsq.Message) error {
+	var err error
+	cmd := strings.Split(string(m.Body), ":")
+	switch cmd[0] {
+	case "reload":
+		if err = w.loadWhitelist(); err != nil {
+			log.Error("Failed to reload whitelist from %s", w.whitelistPath)
+			return err
+		}
+	case "kill":
+		log.Info("Received kill request for %s", cmd[1])
+		wMutex.Lock()
+		job, exists := w.Jobs[cmd[1]]
+		wMutex.Unlock()
+		runtime.Gosched()
+		if exists {
+			defer func() {
+				wMutex.Lock()
+				delete(w.Jobs, cmd[1])
+				wMutex.Unlock()
+				runtime.Gosched()
+			}()
+			job.kill()
+		}
 	}
-	log.Info("Reloaded whitelist from %s", whitelistPath)
 	return nil
 }
 
-func (w *Worker) Connect() error {
+// Helper functions
+
+func (w *Worker) process(m *nsq.Message) {
 	var err error
 
-	// Connect consumers to NSQLookupd
-	if w.LookupAddresses != nil && len(w.LookupAddresses) != 0 {
-		log.Info("Connecting Consumer to the following NSQLookupds %s", w.LookupAddresses)
-		err = w.Consumer.ConnectToNSQLookupds(w.LookupAddresses)
-		if err != nil {
-			return err
-		}
-
-		log.Info("Connecting ReloadConsumer to the following NSQLookupds %s", w.LookupAddresses)
-		err = w.ReloadConsumer.ConnectToNSQLookupds(w.LookupAddresses)
-		if err != nil {
-			return err
-		}
-		return nil
-	}
-	// Connect consumers to NSQD
-	if w.QueueAddresses != nil && len(w.QueueAddresses) != 0 {
-		log.Info("Connecting Consumer to the following NSQDs %s", w.QueueAddresses)
-		err = w.Consumer.ConnectToNSQDs(w.QueueAddresses)
-		if err != nil {
-			return err
-		}
-
-		log.Info("Connecting ReloadConsumer to the following NSQDs %s", w.QueueAddresses)
-		err = w.ReloadConsumer.ConnectToNSQDs(w.QueueAddresses)
-		if err != nil {
-			return err
-		}
-		return nil
-	}
-	return err
-}
-
-func (w *Worker) Process(m *nsq.Message) {
 	// Tell NSQD to reset time until done channel is non-empty.
 	// Runs every 30 seconds.
-	done := make(chan bool, 1)
+	done := make(chan int, 1)
 	go func() {
 		defer close(done)
 		for {
@@ -180,68 +180,97 @@ func (w *Worker) Process(m *nsq.Message) {
 	if err != nil {
 		log.Error("Couldn't create Job: %s", err.Error())
 		m.RequeueWithoutBackoff(-1)
-		log.Info("Job %d requeued", job.ID)
-		done <- true
+		log.Info("Job %s requeued", job.ID)
+		done <- 1
 	}
-	log.Info("Dequeued Job %d", job.ID)
+	wMutex.Lock()
+	w.Jobs[job.ID] = &job
+	wMutex.Unlock()
+	runtime.Gosched()
+	defer func() {
+		wMutex.Lock()
+		delete(w.Jobs, job.ID)
+		wMutex.Unlock()
+		runtime.Gosched()
+	}()
+	log.Info("Dequeued Job %s", job.ID)
 
-	// Check if Job is already being executed
-	success, err := setRedisID(job.ID)
-	if err != nil {
-		log.Error("Couldn't continue with Job #%d, aborting: %s", job.ID, err.Error())
-		if !success {
-			unsetRedisID(job.ID)
+	// Try and run script
+	if len(w.whitelist) == 0 || w.whitelist[job.Script] {
+		if err = job.Execute(w.scriptDir, w.workingDir, w.storeDir, w.keepTemp); err != nil {
+			log.Error(err.Error())
 		}
-		m.RequeueWithoutBackoff(-1)
-		log.Info("Job %d requeued", job.ID)
-		done <- true
-	}
-	if success {
-		// Try and run script
-		if len(w.WhiteList) == 0 || w.WhiteList[job.Script] {
-			resultChan := make(chan error, 1)
-			job.Execute(resultChan)
-			err := <-resultChan
-			if err != nil {
-				job.Status = STATUS_ERR
-			} else {
-				job.Status = STATUS_OK
-			}
-		} else {
-			msg := fmt.Sprintf("%s is not on script whitelist", job.Script)
-			job.ExecLog = msg
-		}
-
-		log.Info(job.ExecLog)
-		job.Log()
-		job.Callback()
 	} else {
-		log.Info("Job #%d being handled, aborting!", job.ID)
+		job.Status = StatusERR
+		msg := fmt.Sprintf("%s is not on script whitelist", job.Script)
+		job.ExecLog = msg
 	}
+
+	if job.Status != StatusTIMEOUT {
+		defer w.respond(&job)
+	}
+	log.Info(job.ExecLog)
+	done <- 1
 	m.Finish()
-	log.Info("Job %d finished", job.ID)
-	done <- true
+	log.Info("Job %s finished", job.ID)
 }
 
-func (w *Worker) Stop() {
-	w.Consumer.Stop()
-	w.ReloadConsumer.Stop()
-	close(w.workChan)
-	return
-}
+func (w *Worker) respond(j *Job) {
+	var err error
 
-func (w *Worker) Run() {
-	// Add the message handler.
-	w.Consumer.AddConcurrentHandlers(nsq.HandlerFunc(w.JobRequestHandler), w.Throughput)
-	w.ReloadConsumer.AddHandler(nsq.HandlerFunc(w.ReloadRequestHandler))
+	doneChan := make(chan *nsq.ProducerTransaction)
+	defer close(doneChan)
 
-	err := w.Connect()
+	result, err := json.Marshal(j)
 	if err != nil {
-		w.Stop()
 		log.Error(err.Error())
-		log.Fatal("Couldn't connect to any NSQLookupd: %s or NSQD: %s nodes", w.LookupAddresses, w.QueueAddresses)
 	}
-	for m := range w.workChan {
-		go w.Process(m)
+	err = w.producer.PublishAsync("result", result, doneChan)
+	if err != nil {
+		log.Error(err.Error())
 	}
+	<-doneChan
+	log.Info("Log for Job #%s sent", j.ID)
+}
+
+func (w *Worker) loadWhitelist() error {
+	log.Debug("Using whitelist from %s", w.whitelistPath)
+
+	var buf bytes.Buffer
+	whitelist := make(map[string]bool)
+	buf.WriteString(fmt.Sprintf("Whitelist: "))
+
+	fileInfo, err := os.Stat(w.whitelistPath)
+	if err != nil {
+		return err
+	}
+	if fileInfo.IsDir() {
+		buf.WriteString(fmt.Sprintf("*"))
+	} else {
+		file, err := os.Open(w.whitelistPath)
+		if err != nil {
+			return err
+		}
+		defer file.Close()
+
+		scanner := bufio.NewScanner(file)
+
+		for scanner.Scan() {
+			whitelist[scanner.Text()] = true
+		}
+		if err != nil {
+			log.Error(err.Error())
+			return err
+		}
+
+		err = scanner.Err()
+
+		for script := range whitelist {
+			buf.WriteString(fmt.Sprintf("%s ", script))
+		}
+	}
+
+	w.whitelist = whitelist
+	log.Debug(buf.String())
+	return nil
 }
