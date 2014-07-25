@@ -23,7 +23,7 @@ var (
 	workingDir = flagSet.String("working-dir", "", "the temporary working directory of the worker")
 	storeDir   = flagSet.String("store-dir", "", "location for worker to persist items")
 	whitelist  = flagSet.String("whitelist", "", "path to whitelist file")
-	keepTemp   = flagSet.Bool("keep-temp", true, "keep temporary files in working dir")
+	keepTemp   = flagSet.Bool("keep-temp", false, "keep temporary files in working dir")
 
 	// Queue Options
 	hostNSQD     = flagSet.String("host-nsqd", "0.0.0.0:4150", "<addr>:<port> to local NSQD node")

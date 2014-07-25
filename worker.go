@@ -48,6 +48,7 @@ func NewWorker(wc *WorkerConfig) (*Worker, error) {
 	worker.scriptDir = wc.ScriptDir
 	worker.workingDir = wc.WorkingDir
 	worker.storeDir = wc.StoreDir
+	worker.keepTemp = wc.KeepTemp
 
 	worker.whitelistPath = wc.Whitelist
 	err = worker.loadWhitelist()
