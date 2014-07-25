@@ -133,6 +133,7 @@ func (w *Worker) commandHandler(m *nsq.Message) error {
 	cmd := strings.Split(string(m.Body), ":")
 	switch cmd[0] {
 	case "reload":
+		log.Info("Received reload request")
 		if err = w.loadWhitelist(); err != nil {
 			log.Error("Failed to reload whitelist from %s", w.whitelistPath)
 			return err
@@ -235,7 +236,7 @@ func (w *Worker) respond(j *Job) {
 }
 
 func (w *Worker) loadWhitelist() error {
-	log.Debug("Using whitelist from %s", w.whitelistPath)
+	log.Info("Using whitelist from %s", w.whitelistPath)
 
 	var buf bytes.Buffer
 	whitelist := make(map[string]bool)
@@ -272,6 +273,6 @@ func (w *Worker) loadWhitelist() error {
 	}
 
 	w.whitelist = whitelist
-	log.Debug(buf.String())
+	log.Info(buf.String())
 	return nil
 }
