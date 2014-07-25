@@ -35,7 +35,7 @@ var (
 	nsqdAddrs    = qmd.StringFlagArray{}
 	lookupdAddrs = qmd.StringFlagArray{}
 
-	msgTemplate = "Job: %s for script: %s\nStarted at %s, took %s seconds, and has a status of %s.\nSee full log: <http://%s/scripts/%s/logs/%s>."
+	msgTemplate = "Job: %s for script: %s with args: %v\nStarted at %s, took %s seconds, and has a status of %s.\nSee full log: <http://%s/scripts/%s/logs/%s>."
 )
 
 func init() {
@@ -54,6 +54,18 @@ func slackHandler(m *nsq.Message) error {
 
 	id := v["id"].(string)
 	script := v["script"].(string)
+	var args bytes.Buffer
+	args.WriteString("[ ")
+	if list, ok := v["args"].([]interface{}); ok {
+		length := len(list)
+		for i, arg := range list {
+			args.WriteString(arg.(string))
+			if i < length-1 {
+				args.WriteString(", ")
+			}
+		}
+	}
+	args.WriteString(" ]")
 	startTime, err := time.Parse(
 		time.RFC3339,
 		v["start_time"].(string),
@@ -75,6 +87,7 @@ func slackHandler(m *nsq.Message) error {
 		msgTemplate,
 		id,
 		script,
+		args.String(),
 		startTime.Format(time.UnixDate),
 		duration,
 		status,
