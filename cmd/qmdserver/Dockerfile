@@ -24,8 +24,10 @@ RUN goop install
 WORKDIR /qmd/cmd/qmdserver
 RUN goop go build
 RUN mv qmdserver /usr/local/bin
+
 EXPOSE 8484
 EXPOSE 6379
+EXPOSE 4150
 
 ENTRYPOINT [ "qmdserver" ]
-CMD [ "--user=$USER", "--pass=$PASS, "--hostNSQD=$NSQD_ADDRESS", "--lookupdAddrs=$LOOKUPD_ADDRESS", "--adminAddr=$ADMIN_ADDRESS" ]
+CMD [ "--user=$USER", "--pass=$PASS", "--lookupd-addresses=$LOOKUPD_ADDRESS", "--nsqadmin-address=$ADMIN_ADDRESS" ]
