@@ -18,12 +18,11 @@ ENV GOPATH /go
 RUN go get github.com/nitrous-io/goop
 
 # QMD
-RUN git clone https://github.com/pressly/qmd.git
-WORKDIR /qmd
+RUN go get github.com/pressly/qmd
+WORKDIR /go/src/github.com/pressly/qmd
 RUN goop install
-WORKDIR /qmd/cmd/qmd_to_slack
+WORKDIR /go/src/github.com/pressly/qmd/cmd/qmd_to_slack
 RUN goop go build
 RUN mv qmd_to_slack /usr/local/bin
 
-ENTRYPOINT [ "qmd_to_slack" ]
-CMD [ "--webhook=$WEBHOOK", "--slack-channel=$CHANNEL", "--log-address=$LOG_ADDRESS", "--lookupd-addresses=$LOOKUPD_ADDRESS" ]
+CMD /usr/local/bin/qmd_to_slack --webhook=$WEBHOOK --slack-channel=$CHANNEL --log-address=$LOG_ADDRESS --lookupd-addresses=$LOOKUPD_ADDRESS
