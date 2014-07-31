@@ -18,16 +18,13 @@ ENV GOPATH /go
 RUN go get github.com/nitrous-io/goop
 
 # QMD
-RUN git clone https://github.com/pressly/qmd.git
-WORKDIR /qmd
+RUN go get github.com/pressly/qmd
+WORKDIR /go/src/github.com/pressly/qmd
 RUN goop install
-WORKDIR /qmd/cmd/qmdserver
+WORKDIR /go/src/github.com/pressly/qmd/cmd/qmdserver
 RUN goop go build
 RUN mv qmdserver /usr/local/bin
 
 EXPOSE 8484
-EXPOSE 6379
-EXPOSE 4150
 
-ENTRYPOINT [ "qmdserver" ]
-CMD [ "--user=$USER", "--pass=$PASS", "--lookupd-addresses=$LOOKUPD_ADDRESS", "--nsqadmin-address=$ADMIN_ADDRESS" ]
+CMD /usr/local/bin/qmdserver --disable-auth --user=$USER --pass=$PASS --host-nsqd=$NSQD --lookupd-addresses=$LOOKUPD_ADDRESS --nsqadmin-address=$ADMIN_ADDRESS
