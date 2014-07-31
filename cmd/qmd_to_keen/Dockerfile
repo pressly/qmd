@@ -21,7 +21,6 @@ RUN go get github.com/nitrous-io/goop
 RUN go get github.com/pressly/qmd
 WORKDIR /go/src/github.com/pressly/qmd
 RUN goop install
-RUN goop install
 WORKDIR /go/src/github.com/pressly/qmd/cmd/qmd_to_keen
 RUN goop go build
 RUN mv qmd_to_keen /usr/local/bin
