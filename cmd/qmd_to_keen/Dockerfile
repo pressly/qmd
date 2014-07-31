@@ -18,12 +18,12 @@ ENV GOPATH /go
 RUN go get github.com/nitrous-io/goop
 
 # QMD
-RUN git clone https://github.com/pressly/qmd.git
-WORKDIR /qmd
+RUN go get github.com/pressly/qmd
+WORKDIR /go/src/github.com/pressly/qmd
 RUN goop install
-WORKDIR /qmd/cmd/qmd_to_keen
+RUN goop install
+WORKDIR /go/src/github.com/pressly/qmd/cmd/qmd_to_keen
 RUN goop go build
 RUN mv qmd_to_keen /usr/local/bin
 
-ENTRYPOINT [ "qmd_to_keen" ]
-CMD [ "--project-id=$PROJECT_ID", "--event-collection=$EVENT_COLLECTION", "--api-key=$API_KEY", "--lookupd-addresses=$LOOKUPD_ADDRESS" ]
+CMD qmd_to_keen --project-id=$PROJECT_ID --event-collection=$EVENT_COLLECTION --api-key=$API_KEY --lookupd-addresses=$LOOKUPD_ADDRESS
