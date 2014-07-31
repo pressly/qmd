@@ -18,13 +18,11 @@ ENV GOPATH /go
 RUN go get github.com/nitrous-io/goop
 
 # QMD
-RUN git clone https://github.com/pressly/qmd.git
-WORKDIR /qmd
+RUN go get github.com/pressly/qmd
+WORKDIR /go/src/github.com/pressly/qmd
 RUN goop install
-WORKDIR /qmd/cmd/qmdworker
+WORKDIR /go/src/github.com/pressly/qmd/cmd/qmdworker
 RUN goop go build
 RUN mv qmdworker /usr/local/bin
-EXPOSE 4150
 
-ENTRYPOINT [ "qmdworker" ]
-CMD [ "--script-dir=$SCRIPT_DIR", "--working-dir=$WORKING_DIR", "--store-dir=$STORE_DIR", "--whitelist=$WHITELIST", "--lookupdAddrs=$LOOKUPD_ADDRESS" ]
+CMD /usr/local/bin/qmdworker --script-dir=$SCRIPT_DIR --working-dir=$WORKING_DIR --store-dir=$STORE_DIR --whitelist=$WHITELIST --lookupd-addresses=$LOOKUPD_ADDRESS --host-nsqd=$NSQD
