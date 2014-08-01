@@ -77,7 +77,7 @@ func main() {
 		fmt.Println(lookupdAddrs)
 		sc.Queue = &qmd.QueueConfig{
 			HostNSQDAddr: *hostNSQD,
-			NSQDAddrs:    lookupdAddrs,
+			NSQDAddrs:    nsqdAddrs,
 			LookupdAddrs: lookupdAddrs,
 		}
 		sc.AdminAddr = *adminAddr
