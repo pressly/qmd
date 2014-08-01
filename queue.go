@@ -25,7 +25,7 @@ func ConnectConsumer(qc *QueueConfig, consumer *nsq.Consumer) error {
 	var err error
 
 	// Connect consumers to NSQLookupd
-	if qc.LookupdAddrs != nil && len(qc.LookupdAddrs) != 0 {
+	if qc.LookupdAddrs != nil || len(qc.LookupdAddrs) != 0 {
 		log.Info("Connecting Consumer to the following NSQLookupds %s", qc.LookupdAddrs)
 		err = consumer.ConnectToNSQLookupds(qc.LookupdAddrs)
 		if err != nil {
@@ -36,7 +36,7 @@ func ConnectConsumer(qc *QueueConfig, consumer *nsq.Consumer) error {
 	fmt.Println(qc.NSQDAddrs)
 	fmt.Println(qc.NSQDAddrs)
 	fmt.Println(qc.NSQDAddrs)
-	if qc.NSQDAddrs != nil && len(qc.NSQDAddrs) != 0 {
+	if qc.NSQDAddrs != nil || len(qc.NSQDAddrs) != 0 {
 		log.Info("Connecting Consumer to the following NSQDs %s", qc.NSQDAddrs)
 		err = consumer.ConnectToNSQDs(qc.NSQDAddrs)
 		if err != nil {
