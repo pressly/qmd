@@ -35,14 +35,5 @@ func ConnectConsumer(qc *QueueConfig, consumer *nsq.Consumer) error {
 			return err
 		}
 	}
-	
-	// Connect consumers to NSQLookupd
-	if qc.LookupdAddrs != nil || len(qc.LookupdAddrs) != 0 {
-		log.Info("Connecting Consumer to the following NSQLookupds %s", qc.LookupdAddrs)
-		err = consumer.ConnectToNSQLookupds(qc.LookupdAddrs)
-		if err != nil {
-			return err
-		}
-	}
 	return nil
 }
