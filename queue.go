@@ -34,6 +34,9 @@ func ConnectConsumer(qc *QueueConfig, consumer *nsq.Consumer) error {
 		return nil
 	}
 	// Connect consumers to NSQD
+	fmt.Println(qc.NSQDAddrs)
+	fmt.Println(qc.NSQDAddrs)
+	fmt.Println(qc.NSQDAddrs)
 	if qc.NSQDAddrs != nil && len(qc.NSQDAddrs) != 0 {
 		log.Info("Connecting Consumer to the following NSQDs %s", qc.NSQDAddrs)
 		err = consumer.ConnectToNSQDs(qc.NSQDAddrs)
