@@ -20,9 +20,10 @@ RUN go get github.com/nitrous-io/goop
 # QMD
 RUN go get github.com/pressly/qmd
 WORKDIR /go/src/github.com/pressly/qmd
+RUN git checkout dev
 RUN goop install
 WORKDIR /go/src/github.com/pressly/qmd/cmd/qmdworker
 RUN goop go build
 RUN mv qmdworker /usr/local/bin
 
-CMD /usr/local/bin/qmdworker --script-dir=$SCRIPT_DIR --working-dir=$WORKING_DIR --store-dir=$STORE_DIR --whitelist=$WHITELIST --lookupd-addresses=$LOOKUPD_ADDRESS --host-nsqd=$NSQD
+CMD /usr/local/bin/qmdworker --script-dir=$SCRIPTS --working-dir=$WORK --store-dir=$STORE --whitelist=$WHITELIST --lookupd-addresses=$LOOKUPD --host-nsqd=$HOST --nsqd-addresses=$NSQD

@@ -20,11 +20,13 @@ RUN go get github.com/nitrous-io/goop
 # QMD
 RUN go get github.com/pressly/qmd
 WORKDIR /go/src/github.com/pressly/qmd
+RUN git checkout dev
 RUN goop install
 WORKDIR /go/src/github.com/pressly/qmd/cmd/qmdserver
+RUN ls -al
 RUN goop go build
 RUN mv qmdserver /usr/local/bin
 
 EXPOSE 8484
 
-CMD /usr/local/bin/qmdserver --disable-auth --user=$USER --pass=$PASS --host-nsqd=$NSQD --lookupd-addresses=$LOOKUPD_ADDRESS --nsqadmin-address=$ADMIN_ADDRESS
+CMD /usr/local/bin/qmdserver --disable-auth --user=$USER --pass=$PASS --db-address=$DB --host-nsqd=$HOST --nsqd-addresses=$NSQD --lookupd-addresses=$LOOKUPD --nsqadmin-address=$ADMIN

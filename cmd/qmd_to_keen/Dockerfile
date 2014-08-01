@@ -20,9 +20,10 @@ RUN go get github.com/nitrous-io/goop
 # QMD
 RUN go get github.com/pressly/qmd
 WORKDIR /go/src/github.com/pressly/qmd
+RUN git checkout dev
 RUN goop install
 WORKDIR /go/src/github.com/pressly/qmd/cmd/qmd_to_keen
 RUN goop go build
 RUN mv qmd_to_keen /usr/local/bin
 
-CMD qmd_to_keen --project-id=$PROJECT_ID --event-collection=$EVENT_COLLECTION --api-key=$API_KEY --lookupd-addresses=$LOOKUPD_ADDRESS
+CMD qmd_to_keen --project-id=$PROJECT --event-collection=$COLLECTION --api-key=$KEY --lookupd-addresses=$LOOKUPD --nsqd-addresses=$NSQD
