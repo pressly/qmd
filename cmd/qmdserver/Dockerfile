@@ -20,7 +20,8 @@ RUN go get github.com/nitrous-io/goop
 # QMD
 RUN go get github.com/pressly/qmd
 WORKDIR /go/src/github.com/pressly/qmd
-RUN git checkout dev
+RUN git fetch
+RUN git checkout test
 RUN goop install
 WORKDIR /go/src/github.com/pressly/qmd/cmd/qmdserver
 RUN ls -al
