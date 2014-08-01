@@ -31,7 +31,6 @@ func ConnectConsumer(qc *QueueConfig, consumer *nsq.Consumer) error {
 		if err != nil {
 			return err
 		}
-		return nil
 	}
 	// Connect consumers to NSQD
 	fmt.Println(qc.NSQDAddrs)
@@ -43,7 +42,6 @@ func ConnectConsumer(qc *QueueConfig, consumer *nsq.Consumer) error {
 		if err != nil {
 			return err
 		}
-		return nil
 	}
-	return fmt.Errorf("Couldn't connect to either NSQDs or NSQLookupds")
+	return nil
 }
