@@ -36,8 +36,8 @@ var (
 )
 
 func init() {
-	flag.Var(&nsqdAddrs, "nsqd-addresses", "nsqd address for consumption (may be given multiple times")
-	flag.Var(&lookupdAddrs, "lookupd-addresses", "lookupd address for consumption, takes precedence over nsqd (may be given multiple times")
+	flag.Var(&nsqdAddrs, "nsqd-addresses", "nsqd address for consumption (may be given multiple times)")
+	flag.Var(&lookupdAddrs, "lookupd-addresses", "lookupd address for consumption, takes precedence over nsqd (may be given multiple times)")
 }
 
 func keenHandler(m *nsq.Message) error {

@@ -47,9 +47,9 @@ var (
 )
 
 func init() {
-	flagSet.Var(&nsqdAddrs, "nsqd-addresses", "nsqd address for consumption (may be given multiple times")
-	flagSet.Var(&lookupdAddrs, "lookupd-addresses", "lookupd address for consumption, takes precedence over nsqd (may be given multiple times")
-	flagSet.Var(&logBackends, "log-backends", "log output location, defaults to STDOUT (may be given multiple times")
+	flagSet.Var(&nsqdAddrs, "nsqd-addresses", "nsqd address for consumption (may be given multiple times)")
+	flagSet.Var(&lookupdAddrs, "lookupd-addresses", "lookupd address for consumption, takes precedence over nsqd (may be given multiple times)")
+	flagSet.Var(&logBackends, "log-backends", "log output location, defaults to STDOUT (may be given multiple times)")
 }
 
 func main() {
