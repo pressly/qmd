@@ -73,6 +73,7 @@ func main() {
 		sc.DisableAuth = *disableAuth
 		sc.Username = *user
 		sc.Password = *pass
+		fmt.Println(lookupdAddrs)
 		sc.Queue = &qmd.QueueConfig{
 			HostNSQDAddr: *hostNSQD,
 			NSQDAddrs:    lookupdAddrs,
