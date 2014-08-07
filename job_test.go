@@ -1,4 +1,4 @@
-package main
+package qmd
 
 import (
 	"io/ioutil"
