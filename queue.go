@@ -40,5 +40,5 @@ func ConnectConsumer(qc *QueueConfig, consumer *nsq.Consumer) error {
 			return err
 		}
 	}
-	return fmt.Errorf("Couldn't connect to either NSQDs or NSQLookupds")
+	return nil
 }
