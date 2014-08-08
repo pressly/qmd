@@ -84,7 +84,7 @@ func NewWorker(wc *WorkerConfig) (*Worker, error) {
 		return &worker, err
 	}
 
-	log.Info("Worker created as %s watching %s", worker.Name, worker.whitelistPath)
+	lg.Info("Worker created as %s watching %s", worker.Name, worker.whitelistPath)
 	return &worker, nil
 }
 
@@ -133,13 +133,13 @@ func (w *Worker) commandHandler(m *nsq.Message) error {
 	cmd := strings.Split(string(m.Body), ":")
 	switch cmd[0] {
 	case "reload":
-		log.Info("Received reload request")
+		lg.Info("Received reload request")
 		if err = w.loadWhitelist(); err != nil {
-			log.Error("Failed to reload whitelist from %s", w.whitelistPath)
+			lg.Error("Failed to reload whitelist from %s", w.whitelistPath)
 			return err
 		}
 	case "kill":
-		log.Info("Received kill request for %s", cmd[1])
+		lg.Info("Received kill request for %s", cmd[1])
 		wMutex.Lock()
 		job, exists := w.Jobs[cmd[1]]
 		wMutex.Unlock()
@@ -180,9 +180,9 @@ func (w *Worker) process(m *nsq.Message) {
 	// Start processing Job
 	job, err := NewJob(m.Body)
 	if err != nil {
-		log.Error("Couldn't create Job: %s", err.Error())
+		lg.Error("Couldn't create Job: %s", err.Error())
 		m.RequeueWithoutBackoff(-1)
-		log.Info("Job %s requeued", job.ID)
+		lg.Info("Job %s requeued", job.ID)
 		done <- 1
 	}
 	wMutex.Lock()
@@ -195,12 +195,12 @@ func (w *Worker) process(m *nsq.Message) {
 		wMutex.Unlock()
 		runtime.Gosched()
 	}()
-	log.Info("Dequeued Job %s", job.ID)
+	lg.Info("Dequeued Job %s", job.ID)
 
 	// Try and run script
 	if len(w.whitelist) == 0 || w.whitelist[job.Script] {
 		if err = job.Execute(w.scriptDir, w.workingDir, w.storeDir, w.keepTemp); err != nil {
-			log.Error(err.Error())
+			lg.Error(err.Error())
 		}
 	} else {
 		job.Status = StatusERR
@@ -211,10 +211,10 @@ func (w *Worker) process(m *nsq.Message) {
 	if job.Status != StatusTIMEOUT {
 		defer w.respond(&job)
 	}
-	log.Info(job.ExecLog)
+	lg.Info(job.ExecLog)
 	done <- 1
 	m.Finish()
-	log.Info("Job %s finished", job.ID)
+	lg.Info("Job %s finished", job.ID)
 }
 
 func (w *Worker) respond(j *Job) {
@@ -225,18 +225,18 @@ func (w *Worker) respond(j *Job) {
 
 	result, err := json.Marshal(j)
 	if err != nil {
-		log.Error(err.Error())
+		lg.Error(err.Error())
 	}
 	err = w.producer.PublishAsync("result", result, doneChan)
 	if err != nil {
-		log.Error(err.Error())
+		lg.Error(err.Error())
 	}
 	<-doneChan
-	log.Info("Log for Job #%s sent", j.ID)
+	lg.Info("Log for Job #%s sent", j.ID)
 }
 
 func (w *Worker) loadWhitelist() error {
-	log.Info("Using whitelist from %s", w.whitelistPath)
+	lg.Info("Using whitelist from %s", w.whitelistPath)
 
 	var buf bytes.Buffer
 	whitelist := make(map[string]bool)
@@ -261,7 +261,7 @@ func (w *Worker) loadWhitelist() error {
 			whitelist[scanner.Text()] = true
 		}
 		if err != nil {
-			log.Error(err.Error())
+			lg.Error(err.Error())
 			return err
 		}
 
@@ -273,6 +273,6 @@ func (w *Worker) loadWhitelist() error {
 	}
 
 	w.whitelist = whitelist
-	log.Info(buf.String())
+	lg.Info(buf.String())
 	return nil
 }

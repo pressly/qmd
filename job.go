@@ -73,7 +73,7 @@ func (j *Job) Execute(scriptDir, workingDir, storeDir string, keep bool) error {
 	cmd.Stdout = cmdOut
 	cmd.Stderr = cmdOut
 
-	log.Info("Executing command: %s %s", s, args)
+	lg.Info("Executing command: %s %s", s, args)
 	doneChan := make(chan error)
 	defer close(doneChan)
 	go func() {
@@ -96,7 +96,7 @@ func (j *Job) Execute(scriptDir, workingDir, storeDir string, keep bool) error {
 		if !os.IsNotExist(er) {
 			j.Output = string(data)
 		} else {
-			log.Error(er.Error())
+			lg.Error(er.Error())
 		}
 		if err != nil {
 			j.ExecLog = fmt.Sprintf("%s\n%s", j.ExecLog, err.Error())
@@ -118,7 +118,7 @@ func (j *Job) SaveFiles(dir string) error {
 		name = strings.Replace(name, "/", "", -1)
 
 		file = path.Join(dir, name)
-		log.Debug("Writing %s to disk", file)
+		lg.Debug("Writing %s to disk", file)
 		err = ioutil.WriteFile(file, []byte(data), 0644)
 		if err != nil {
 			return err
@@ -137,9 +137,9 @@ func (j *Job) cleanArgs() ([]string, error) {
 }
 
 func (j *Job) removeTmpDir(tmpPath string) {
-	log.Debug("Deleting all files and dirs in %s", tmpPath)
+	lg.Debug("Deleting all files and dirs in %s", tmpPath)
 	err := os.RemoveAll(tmpPath)
 	if err != nil {
-		log.Error("Failed to delete all files and dirs in %s - %s", tmpPath, err)
+		lg.Error("Failed to delete all files and dirs in %s - %s", tmpPath, err)
 	}
 }

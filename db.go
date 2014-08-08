@@ -55,7 +55,7 @@ func (db DB) SetLog(script, id, data string) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	log.Info("Added %s to %s logs", id, script)
+	lg.Info("Added %s to %s logs", id, script)
 
 	return true, nil
 }
@@ -98,7 +98,7 @@ func (db DB) trimLog(script string, currentTime time.Time) {
 	oldTime := currentTime.Add(-logTTL)
 	ids, err := redis.Strings(c.Do("ZRANGEBYSCORE", key, "-inf", oldTime.UnixNano()))
 	if err != nil {
-		log.Error(err.Error())
+		lg.Error(err.Error())
 		return
 	}
 
@@ -110,11 +110,11 @@ func (db DB) trimLog(script string, currentTime time.Time) {
 		}
 		reply, err := redis.Values(c.Do("EXEC"))
 		if err != nil {
-			log.Error(err.Error())
+			lg.Error(err.Error())
 			return
 		}
-		log.Info("Trimmed %d old entries for %s", len(reply)/2, script)
+		lg.Info("Trimmed %d old entries for %s", len(reply)/2, script)
 		return
 	}
-	log.Info("No logs to trim for %s", script)
+	lg.Info("No logs to trim for %s", script)
 }

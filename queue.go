@@ -3,7 +3,6 @@ package qmd
 import (
 	"fmt"
 
-	"github.com/alexcesaro/log"
 	"github.com/bitly/go-nsq"
 )
 
@@ -27,7 +26,7 @@ func ConnectConsumer(qc *QueueConfig, consumer *nsq.Consumer) error {
 
 	// Connect consumers to NSQLookupd
 	if qc.LookupdAddrs != nil && len(qc.LookupdAddrs) != 0 {
-		log.Info("Connecting Consumer to the following NSQLookupds %s", qc.LookupdAddrs)
+		lg.Info("Connecting Consumer to the following NSQLookupds %s", qc.LookupdAddrs)
 		err = consumer.ConnectToNSQLookupds(qc.LookupdAddrs)
 		if err != nil {
 			return err
@@ -35,7 +34,7 @@ func ConnectConsumer(qc *QueueConfig, consumer *nsq.Consumer) error {
 	}
 	// Connect consumers to NSQD
 	if qc.NSQDAddrs != nil && len(qc.NSQDAddrs) != 0 {
-		log.Info("Connecting Consumer to the following NSQDs %s", qc.NSQDAddrs)
+		lg.Info("Connecting Consumer to the following NSQDs %s", qc.NSQDAddrs)
 		err = consumer.ConnectToNSQDs(qc.NSQDAddrs)
 		if err != nil {
 			return err

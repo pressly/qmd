@@ -8,7 +8,7 @@ import (
 	"github.com/op/go-logging"
 )
 
-var log = logging.MustGetLogger("qmd")
+var lg = logging.MustGetLogger("qmd")
 
 type LoggingConfig struct {
 	LogLevel    string   `toml:"log_level"`
@@ -64,6 +64,6 @@ func SetupLogging(lc *LoggingConfig) error {
 type logProxyWriter struct{}
 
 func (l *logProxyWriter) Write(p []byte) (n int, err error) {
-	log.Info("%s", p)
+	lg.Info("%s", p)
 	return len(p), nil
 }
