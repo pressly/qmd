@@ -59,7 +59,7 @@ func NewServer(sc *ServerConfig) (*Server, error) {
 		return &server, err
 	}
 
-	log.Info("Server created as %s", server.Name)
+	lg.Info("Server created as %s", server.Name)
 	return &server, nil
 }
 
@@ -150,17 +150,17 @@ func (s Server) processRequest(r Request) {
 
 	data, err := r.WriteJSON()
 	if err != nil {
-		log.Error(err.Error())
+		lg.Error(err.Error())
 		return
 	}
 
 	doneChan := make(chan *nsq.ProducerTransaction)
 	if err = s.producer.PublishAsync("job", data, doneChan); err != nil {
-		log.Error(err.Error())
+		lg.Error(err.Error())
 		return
 	}
 	<-doneChan
-	log.Info("Request queued as %s", r.ID)
+	lg.Info("Request queued as %s", r.ID)
 	go s.startTTL(r)
 
 	sMutex.Lock()
@@ -175,7 +175,7 @@ func (s Server) processRequest(r Request) {
 func (s Server) processResult(data []byte) {
 	var r Job
 	if err := json.Unmarshal(data, &r); err != nil {
-		log.Error(err.Error())
+		lg.Error(err.Error())
 		return
 	}
 	s.finish(r.Script, r.ID, data)
@@ -195,12 +195,12 @@ func (s Server) startTTL(req Request) {
 
 	data, err := json.Marshal(&req)
 	if err != nil {
-		log.Error(err.Error())
+		lg.Error(err.Error())
 	}
 	go s.killJob(req.ID)
 	doneChan := make(chan *nsq.ProducerTransaction)
 	if err := s.producer.PublishAsync("result", data, doneChan); err != nil {
-		log.Error(err.Error())
+		lg.Error(err.Error())
 	}
 	<-doneChan
 }
@@ -227,16 +227,16 @@ func (s Server) killJob(id string) {
 	doneChan := make(chan *nsq.ProducerTransaction)
 	cmd := fmt.Sprintf("kill:%s", id)
 	if err := s.producer.PublishAsync("command", []byte(cmd), doneChan); err != nil {
-		log.Error(err.Error())
+		lg.Error(err.Error())
 	}
 	<-doneChan
-	log.Info("Sent kill request for %s", id)
+	lg.Info("Sent kill request for %s", id)
 }
 
 func callback(url string, ch chan []byte) {
 	buf := bytes.NewBuffer(<-ch)
 	_, err := http.Post(url, "application/json", buf)
 	if err != nil {
-		log.Error(err.Error())
+		lg.Error(err.Error())
 	}
 }
