@@ -1,5 +1,6 @@
 github.com/op/go-logging #c1b91128b40ead0e98dbc63cde57c0541feaa6c1
 github.com/BurntSushi/toml #bd2bdf7f18f849530ef7a1c29a4290217cab32a1
+github.com/mreiferson/go-snappystream #dfbfd82fd396421219ce275fd8c973af09e3d8a8
 github.com/bitly/go-nsq #ac221df5bdb6d5bfc624a297b5b00b59d7065be2
 github.com/garyburd/redigo/redis #1c7841955920910958c71b1cc1a03f628267d468
 github.com/pressly/gohttpware/... #5a4f361250fa98b19c736ab59eb409bdb98fe4a6
