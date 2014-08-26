@@ -101,10 +101,10 @@ func slackHandler(m *nsq.Message) error {
 	}
 
 	resp, err := http.Post(*slackWebhook, "application/json", bytes.NewReader(data))
-	defer resp.Body.Close()
 	if err != nil {
 		return err
 	}
+	defer resp.Body.Close()
 	log.Printf("Sent message for log %s to %s", id, *slackChannel)
 	return nil
 }

@@ -58,10 +58,10 @@ func keenHandler(m *nsq.Message) error {
 		return err
 	}
 	resp, err := http.Post(keenAddress, "application/json", bytes.NewReader(data))
-	defer resp.Body.Close()
 	if err != nil {
 		return err
 	}
+	defer resp.Body.Close()
 	script, id := v["script"], v["id"]
 	log.Printf("Sent %s of %s to collection %s", id, script, *keenEventCollection)
 	return nil
