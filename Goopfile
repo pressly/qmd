@@ -6,3 +6,4 @@ github.com/pressly/gohttpware/... #5a4f361250fa98b19c736ab59eb409bdb98fe4a6
 github.com/zenazn/goji/web #32da78b2dfeb2f5353e3b14a54a1b30d356e979c
 github.com/zenazn/goji/graceful #32da78b2dfeb2f5353e3b14a54a1b30d356e979c
 github.com/zenazn/goji/web/middleware #32da78b2dfeb2f5353e3b14a54a1b30d356e979c
+code.google.com/p/go-uuid/uuid #7dda39b2e7d5e265014674c5af696ba4186679e9

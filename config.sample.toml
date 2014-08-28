@@ -12,7 +12,7 @@ password = "pass"
 
 
 # Worker settings
-throughput = 20
+throughput = 10
 script_dir = "/home/vagrant/test/scripts"
 working_dir = "/home/vagrant/test"
 store_dir = "/home/vagrant/test/store"
