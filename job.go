@@ -48,11 +48,12 @@ func (j *Job) Execute(scriptDir, workingDir, storeDir string, keep bool) error {
 	}
 
 	// Set environment variables
-	os.Setenv("QMD_STORE", storeDir)
+	env := os.Environ()
+	env = append(env, fmt.Sprintf("%s=%s", "QMD_STORE", storeDir))
 
 	tmpPath := path.Join(workingDir, j.ID)
+	env = append(env, fmt.Sprintf("%s=%s", "QMD_TMP", tmpPath))
 	os.MkdirAll(tmpPath, 0775)
-	os.Setenv("QMD_TMP", tmpPath)
 	if !keep {
 		defer j.removeTmpDir(tmpPath)
 	}
@@ -64,11 +65,12 @@ func (j *Job) Execute(scriptDir, workingDir, storeDir string, keep bool) error {
 	}
 
 	outPath := path.Join(tmpPath, "qmd.out")
-	os.Setenv("QMD_OUT", outPath)
+	env = append(env, fmt.Sprintf("%s=%s", "QMD_OUT", outPath))
 
 	// Setup and execute cmd
 	cmd := exec.Command(s, args...)
 	cmd.Dir = workingDir
+	cmd.Env = env
 	cmdOut := bytes.NewBuffer(nil)
 	cmd.Stdout = cmdOut
 	cmd.Stderr = cmdOut
