@@ -90,7 +90,7 @@ func (s Server) Queue(script string, data []byte) (<-chan []byte, error) {
 	runtime.Gosched()
 	s.RequestChan <- req
 
-	// Asynchronous call
+	// Synchronous call
 	if req.CallbackURL != "" {
 		newCh := make(chan []byte, 1)
 		defer close(newCh)
@@ -161,7 +161,9 @@ func (s Server) processRequest(r Request) {
 	}
 	<-doneChan
 	lg.Info("Request queued as %s", r.ID)
-	go s.startTTL(r)
+	if r.CallbackURL == "" { // Synchronous Call
+		go s.startTTL(r)
+	}
 
 	sMutex.Lock()
 	ch, exist := s.Requests[r.ID]
