@@ -14,7 +14,7 @@ import (
 
 const (
 	StatusQUEUED  string = "QUEUED"
-	StatusTIMEOUT string = "TIMED OUT"
+	StatusTIMEOUT string = "TIMED_OUT"
 	StatusOK      string = "OK"
 	StatusERR     string = "ERR"
 )

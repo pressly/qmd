@@ -28,3 +28,11 @@ func (a *StringFlagArray) Set(s string) error {
 func (a *StringFlagArray) String() string {
 	return strings.Join(*a, ",")
 }
+
+func (a *StringFlagArray) Slice() []string {
+	var tmp []string
+	for _, s := range strings.Split(a.String(), ",") {
+		tmp = append(tmp, s)
+	}
+	return tmp
+}
