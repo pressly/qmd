@@ -20,6 +20,7 @@ type Worker struct {
 	Name       string
 	Throughput int
 	Jobs       map[string]*Job
+	Topic      string
 
 	queue         *QueueConfig
 	scriptDir     string
@@ -43,6 +44,7 @@ func NewWorker(wc *WorkerConfig) (*Worker, error) {
 	worker.Name = wc.Name
 	worker.Throughput = wc.Throughput
 	worker.Jobs = make(map[string]*Job)
+	worker.Topic = wc.Topic
 
 	worker.queue = wc.Queue
 	worker.scriptDir = wc.ScriptDir
@@ -58,7 +60,7 @@ func NewWorker(wc *WorkerConfig) (*Worker, error) {
 
 	cfg := nsq.NewConfig()
 	cfg.Set("max_in_flight", worker.Throughput)
-	jobConsumer, err := nsq.NewConsumer("job", "qmd-worker", cfg)
+	jobConsumer, err := nsq.NewConsumer(worker.Topic, "qmd-worker", cfg)
 	if err != nil {
 		return &worker, err
 	}

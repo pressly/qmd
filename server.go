@@ -154,8 +154,13 @@ func (s Server) processRequest(r Request) {
 		return
 	}
 
+	topic := "job"
+	if r.Topic != "" {
+		topic = r.Topic
+	}
+
 	doneChan := make(chan *nsq.ProducerTransaction)
-	if err = s.producer.PublishAsync("job", data, doneChan); err != nil {
+	if err = s.producer.PublishAsync(topic, data, doneChan); err != nil {
 		lg.Error(err.Error())
 		return
 	}

@@ -49,6 +49,7 @@ func (sc *ServerConfig) Clean() error {
 type WorkerConfig struct {
 	baseConfig
 
+	Topic      string `toml:"topic"`
 	Throughput int    `toml:"throughput"`
 	ScriptDir  string `toml:"script_dir"`
 	WorkingDir string `toml:"working_dir"`
@@ -62,6 +63,10 @@ func (wc *WorkerConfig) Clean() error {
 
 	if wc.Name == "" {
 		wc.Name = fmt.Sprintf("worker-%s", NewID())
+	}
+
+	if wc.Topic == "" {
+		wc.Topic = "job"
 	}
 
 	// Fix paths

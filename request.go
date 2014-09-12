@@ -8,6 +8,7 @@ import (
 type Request struct {
 	ID          string            `json:"id"`
 	Script      string            `json:"script"`
+	Topic       string            `json:"topic"`
 	Args        []string          `json:"args,omitempty"`
 	Files       map[string]string `json:"files,omitempty"`
 	CallbackURL string            `json:"callback_url"`
