@@ -1,9 +1,15 @@
+github.com/BurntSushi/toml #2ceedfee35ad3848e49308ab0c9a4f640cfb5fb2
 github.com/op/go-logging #c1b91128b40ead0e98dbc63cde57c0541feaa6c1
-github.com/BurntSushi/toml #bd2bdf7f18f849530ef7a1c29a4290217cab32a1
-github.com/bitly/go-nsq #15045438e48e3f0bb674b7aff030d09c03ba9ae3
-github.com/garyburd/redigo/redis #1c7841955920910958c71b1cc1a03f628267d468
+
 github.com/pressly/gohttpware/... #5a4f361250fa98b19c736ab59eb409bdb98fe4a6
-github.com/zenazn/goji/web #32da78b2dfeb2f5353e3b14a54a1b30d356e979c
-github.com/zenazn/goji/graceful #32da78b2dfeb2f5353e3b14a54a1b30d356e979c
-github.com/zenazn/goji/web/middleware #32da78b2dfeb2f5353e3b14a54a1b30d356e979c
+
+github.com/zenazn/goji #17b9035bcd162f59e1a1247d4a755124c37052c5
+github.com/zenazn/goji/web #17b9035bcd162f59e1a1247d4a755124c37052c5
+github.com/zenazn/goji/web/middleware #17b9035bcd162f59e1a1247d4a755124c37052c5
+github.com/zenazn/goji/graceful #17b9035bcd162f59e1a1247d4a755124c37052c5
+
 code.google.com/p/go-uuid/uuid #7dda39b2e7d5e265014674c5af696ba4186679e9
+github.com/garyburd/redigo/redis #8d6d4f929affa96b443abd7fdb5a32ffc27865dc
+
+github.com/bitly/nsq/nsqd #4bb70fa1433f486fde6028477e8ed4ffb8d3b373
+github.com/bitly/go-nsq #9e7c9905da034e545b041cb31bc9737d533804da

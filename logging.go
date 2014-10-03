@@ -1,66 +1,43 @@
 package qmd
 
 import (
-	"os"
-
 	stdlog "log"
+	"os"
 
 	"github.com/op/go-logging"
 )
 
-var lg = logging.MustGetLogger("qmd")
+var (
+	lg = logging.MustGetLogger("qmd")
+)
 
-type LoggingConfig struct {
-	LogLevel    string   `toml:"log_level"`
-	LogBackends []string `toml:"log_backends"`
+type LoggingConf struct {
+	LogLevel string `toml:"log_level"`
 }
 
-func (lc *LoggingConfig) Clean() {
+func (lc *LoggingConf) Setup() {
 	if lc.LogLevel == "" {
 		lc.LogLevel = "INFO"
 	}
-	if len(lc.LogBackends) == 0 {
-		lc.LogBackends = append(lc.LogBackends, "STDOUT")
-	}
-}
 
-func SetupLogging(lc *LoggingConfig) error {
-	// Setup logger
 	logging.SetFormatter(logging.MustStringFormatter("%{level} %{message}"))
 
-	var logBackends []logging.Backend
-	for _, lb := range lc.LogBackends {
-		// TODO: test for starting with / or ./ and treat it
-		// as a file logger
-		// TODO: case insensitive stdout / syslog
-		switch lb {
-		case "STDOUT":
-			logBackend := logging.NewLogBackend(os.Stdout, "", stdlog.LstdFlags)
-			logBackends = append(logBackends, logBackend)
-		case "syslog":
-			logBackend, err := logging.NewSyslogBackend("qmd")
-			if err != nil {
-				return err
-			}
-			logBackends = append(logBackends, logBackend)
-		}
-	}
-	if len(logBackends) > 0 {
-		logging.SetBackend(logBackends...)
-	}
+	// TODO: we can add more log backend support later.. see older qmd/logging.go
+	logging.SetBackend(logging.NewLogBackend(os.Stdout, "", stdlog.LstdFlags))
 
 	logLevel, err := logging.LogLevel(lc.LogLevel)
 	if err != nil {
-		return err
+		stdlog.Fatal(err)
+		return
 	}
 	logging.SetLevel(logLevel, "qmd")
 
 	// Redirect standard logger
 	stdlog.SetOutput(&logProxyWriter{})
-
-	return nil
+	stdlog.SetFlags(0)
 }
 
+// Proxy writer for any packages using the standard log.Println() stuff
 type logProxyWriter struct{}
 
 func (l *logProxyWriter) Write(p []byte) (n int, err error) {
