@@ -1,11 +1,13 @@
 package qmd
 
 import (
+	"fmt"
 	"os"
 
 	stdlog "log"
 
 	"github.com/op/go-logging"
+	"github.com/pressly/gohttpware/errorlog"
 )
 
 var lg = logging.MustGetLogger("qmd")
@@ -13,6 +15,7 @@ var lg = logging.MustGetLogger("qmd")
 type LoggingConfig struct {
 	LogLevel    string   `toml:"log_level"`
 	LogBackends []string `toml:"log_backends"`
+	AirbrakeKey string   `toml:"airbrake_key"`
 }
 
 func (lc *LoggingConfig) Clean() {
@@ -43,6 +46,13 @@ func SetupLogging(lc *LoggingConfig) error {
 				return err
 			}
 			logBackends = append(logBackends, logBackend)
+		case "Airbrake":
+			if lc.AirbrakeKey != "" {
+				logBackend := errorlog.NewAirbrakeBackend(lc.AirbrakeKey)
+				logBackends = append(logBackends, logBackend)
+			} else {
+				return fmt.Errorf("Couldn't find Airbrake API Key")
+			}
 		}
 	}
 	if len(logBackends) > 0 {

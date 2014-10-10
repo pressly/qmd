@@ -31,3 +31,4 @@ lookupd_addresses = []
 [logging]
 log_level = "INFO"
 log_backends = [ "STDOUT" ]
+airbrake_key = ""

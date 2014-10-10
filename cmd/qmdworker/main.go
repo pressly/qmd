@@ -34,6 +34,7 @@ var (
 	// Logging Options
 	logLevel    = flagSet.String("log-level", "INFO", "level of logging") // DEBUG > INFO > NOTICE > WARNING > ERROR > CRITICAL
 	logBackends = qmd.StringFlagArray{}                                   // "STDOUT", "syslog", or "/file/path"
+	airbrakeKey = flagSet.String("airbrake-key", "", "Airbrake API Key")
 )
 
 func init() {
@@ -71,6 +72,7 @@ func main() {
 		wc.Logging = &qmd.LoggingConfig{
 			LogLevel:    *logLevel,
 			LogBackends: logBackends,
+			AirbrakeKey: *airbrakeKey,
 		}
 	}
 	if err = wc.Clean(); err != nil {

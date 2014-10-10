@@ -10,6 +10,7 @@ import (
 	"github.com/BurntSushi/toml"
 	"github.com/op/go-logging"
 	"github.com/pressly/gohttpware/auth"
+	"github.com/pressly/gohttpware/heartbeat"
 	"github.com/pressly/gohttpware/route"
 	"github.com/pressly/qmd"
 	"github.com/zenazn/goji/graceful"
@@ -42,6 +43,7 @@ var (
 	// Logging Options
 	logLevel    = flagSet.String("log-level", "INFO", "level of logging") // DEBUG > INFO > NOTICE > WARNING > ERROR > CRITICAL
 	logBackends = qmd.StringFlagArray{}                                   // "STDOUT", "syslog", or "/file/path"
+	airbrakeKey = flagSet.String("airbrake-key", "", "Airbrake API Key")
 
 	log = logging.MustGetLogger("qmd")
 )
@@ -82,6 +84,7 @@ func main() {
 		sc.Logging = &qmd.LoggingConfig{
 			LogLevel:    *logLevel,
 			LogBackends: logBackends,
+			AirbrakeKey: *airbrakeKey,
 		}
 	}
 	if err = sc.Clean(); err != nil {
@@ -100,7 +103,7 @@ func main() {
 	// Middleware
 	w.Use(middleware.Logger)
 	w.Use(middleware.Recoverer)
-	w.Use(route.Heartbeat("/ping"))
+	w.Use(heartbeat.Route("/ping"))
 	if !*disableAuth {
 		ra := auth.RedisAuth{
 			Address:  *dbAddr,
