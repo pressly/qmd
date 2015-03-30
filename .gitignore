@@ -1,0 +1,10 @@
+.DS_Store
+cmd/*/tmp/
+bin/
+etc/qmd.conf
+
+*~
+\#*\#
+.\#*
+
+*.test

@@ -1,0 +1,4 @@
+environment       = "development"
+bind              = "0.0.0.0:8484"
+max_procs         = 1
+debug_mode        = true
