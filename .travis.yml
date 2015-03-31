@@ -5,6 +5,7 @@ go:
   - tip
 
 install:
+  - test -d $HOME/gopath/src/github.com/pressly/qmd || { mkdir -p $HOME/gopath/src/github.com/pressly && ln -s $PWD $HOME/gopath/src/github.com/pressly/qmd; }
   - make dist
 
 script:
