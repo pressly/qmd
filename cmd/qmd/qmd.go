@@ -5,10 +5,12 @@ import (
 	"log"
 	"os"
 	"runtime"
+	"syscall"
 
 	//"github.com/pressly/qmd"
-	//"github.com/pressly/qmd/api"
 	"github.com/pressly/qmd/config"
+	"github.com/pressly/qmd/web/api"
+	"github.com/zenazn/goji/graceful"
 )
 
 var (
@@ -42,10 +44,12 @@ func main() {
 	// 	log.Fatal(err)
 	// }
 
-	// graceful.AddSignal(syscall.SIGINT, syscall.SIGTERM)
-	// err = graceful.ListenAndServe(conf.Bind, api.New(app))
-	// if err != nil {
-	// 	lg.Fatal(err)
-	// }
-	// graceful.Wait()
+	log.Printf("Starting QMD at %s\n", conf.Bind)
+
+	graceful.AddSignal(syscall.SIGINT, syscall.SIGTERM)
+	err = graceful.ListenAndServe(conf.Bind, api.New(conf))
+	if err != nil {
+		log.Fatal(err)
+	}
+	graceful.Wait()
 }
