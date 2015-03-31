@@ -33,7 +33,7 @@ coverage:
 
 build:
 	@mkdir -p ./bin
-	go build -o ./bin/qmd github.com/pressly/qmd/cmd/qmd
+	go build -o ./bin/qmd ./cmd/qmd/qmd.go
 
 clean:
 	@rm -rf ./bin
