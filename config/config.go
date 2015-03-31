@@ -16,6 +16,10 @@ type Config struct {
 	Bind        string `toml:"bind"`
 	MaxProcs    int    `toml:"max_procs"`
 	DebugMode   bool   `toml:"debug_mode"`
+	WorkDir     string `toml:"work_dir"`
+	StoreDir    string `toml:"store_dir"`
+	MaxJobs     int    `toml:"max_jobs"`
+	MaxExecTime int    `toml:"max_exec_time"`
 }
 
 // New reads configuration from a specified file and creates new Config object.
