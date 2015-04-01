@@ -10,7 +10,7 @@ import (
 )
 
 func TestPing(t *testing.T) {
-	conf, _ := config.New("../../etc/qmd.conf.sample")
+	conf, _ := config.New("../etc/qmd.conf.sample")
 
 	apiHandler := New(conf)
 	ts := httptest.NewServer(apiHandler)
