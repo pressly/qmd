@@ -1,3 +1,4 @@
 github.com/BurntSushi/toml 3883ac1ce943878302255f538fce319d23226223
+github.com/goware/throttler d97f69c81314ef23d503b2099ea47d007a76cb6c
 github.com/pressly/gohttpware be07be427d534bb2b66e44bef18311e62437ab6b
 github.com/zenazn/goji 739f05c9497895aee8d398a8ff38fb0517c4d670

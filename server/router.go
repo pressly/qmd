@@ -3,6 +3,7 @@ package server
 import (
 	"net/http"
 
+	"github.com/goware/throttler"
 	"github.com/pressly/gohttpware/heartbeat"
 	"github.com/zenazn/goji/web"
 	"github.com/zenazn/goji/web/middleware"
@@ -27,7 +28,9 @@ func New(conf *config.Config) http.Handler {
 	r.Use(heartbeat.Route("/ping"))
 	r.Use(heartbeat.Route("/"))
 
-	r.Handle("/scripts/*", script.Router())
+	scriptRoute := script.Router()
+	scriptRoute.Use(throttler.Limit(conf.MaxJobs))
+	r.Handle("/scripts/*", scriptRoute)
 
 	return r
 }
