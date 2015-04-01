@@ -9,7 +9,7 @@ import (
 
 	//"github.com/pressly/qmd"
 	"github.com/pressly/qmd/config"
-	"github.com/pressly/qmd/web/api"
+	"github.com/pressly/qmd/server"
 	"github.com/zenazn/goji/graceful"
 )
 
@@ -47,7 +47,7 @@ func main() {
 	log.Printf("Starting QMD at %s\n", conf.Bind)
 
 	graceful.AddSignal(syscall.SIGINT, syscall.SIGTERM)
-	err = graceful.ListenAndServe(conf.Bind, api.New(conf))
+	err = graceful.ListenAndServe(conf.Bind, server.New(conf))
 	if err != nil {
 		log.Fatal(err)
 	}
