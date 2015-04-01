@@ -8,7 +8,7 @@ import (
 	"github.com/zenazn/goji/web/middleware"
 
 	"github.com/pressly/qmd/config"
-	//"github.com/pressly/qmd/server/script"
+	"github.com/pressly/qmd/server/script"
 )
 
 func New(conf *config.Config) http.Handler {
@@ -27,7 +27,7 @@ func New(conf *config.Config) http.Handler {
 	r.Use(heartbeat.Route("/ping"))
 	r.Use(heartbeat.Route("/"))
 
-	//r.Post("/scripts/:filename", script.CreateJob)
+	r.Handle("/scripts/*", script.Router())
 
 	return r
 }
