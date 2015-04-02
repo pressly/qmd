@@ -7,6 +7,8 @@ import (
 	"net/http/httputil"
 
 	"github.com/zenazn/goji/web"
+
+	"github.com/pressly/qmd/script"
 )
 
 func CreateJob(c web.C, w http.ResponseWriter, r *http.Request) {
@@ -23,8 +25,14 @@ func CreateJob(c web.C, w http.ResponseWriter, r *http.Request) {
 	filename := c.URLParams["filename"]
 	log.Print(filename, req.Args, req.Files, req.CallbackURL)
 
+	script, err := script.Ctl.Get(filename)
+	if err != nil {
+		http.Error(w, err.Error(), 404)
+		return
+	}
+
 	//TODO: Do the actual work.
 
 	//TODO: Return Response instead.
-	w.Write([]byte("OK"))
+	w.Write([]byte(script))
 }

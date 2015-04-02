@@ -12,39 +12,25 @@ import (
 	"github.com/pressly/qmd/script"
 )
 
-var App *QMD
-
-type QMD struct {
-	Config    *config.Config
-	JobCtl    *job.Controller
-	ScriptCtl *script.Controller
-}
-
 func RunOrDie(conf *config.Config) {
-	var err error
-
-	App := &QMD{
-		Config: conf,
-	}
-
 	// Create Job Controller.
-	App.JobCtl, err = job.NewController(conf)
+	jobCtl, err := job.NewController(conf)
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	// Create Script Controller.
-	App.ScriptCtl, err = script.NewController(conf)
+	scriptCtl, err := script.NewController(conf)
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	// Run controllers.
 	log.Print("Starting QMD Job Controller")
-	go App.JobCtl.Run()
+	go jobCtl.Run()
 
 	log.Print("Starting QMD Script Controller")
-	go App.ScriptCtl.Run()
+	go scriptCtl.Run()
 
 	// Start the API server.
 	log.Printf("Starting QMD API at %s\n", conf.Bind)

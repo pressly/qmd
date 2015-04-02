@@ -4,18 +4,20 @@ import (
 	"github.com/pressly/qmd/config"
 )
 
+var Ctl *Controller
+
 type Controller struct {
 	WorkDir string
 	Jobs    []*Job
 }
 
 func NewController(conf *config.Config) (*Controller, error) {
-	ctl := &Controller{}
+	Ctl = &Controller{}
 
 	//TODO: Check the actual path. Create directory etc.
-	ctl.WorkDir = conf.WorkDir
+	Ctl.WorkDir = conf.WorkDir
 
-	return ctl, nil
+	return Ctl, nil
 }
 
 func (c *Controller) Run() (*Job, error) {
