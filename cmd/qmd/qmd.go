@@ -36,8 +36,5 @@ func main() {
 	runtime.GOMAXPROCS(conf.MaxProcs)
 
 	// Run QMD.
-	err = qmd.Run(conf)
-	if err != nil {
-		log.Fatal(err)
-	}
+	qmd.RunOrDie(conf)
 }

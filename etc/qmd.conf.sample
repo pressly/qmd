@@ -2,6 +2,7 @@ environment       = "development"
 bind              = "0.0.0.0:8484"
 max_procs         = 1
 debug_mode        = true
+work_dir          = "./examples/scripts"
 work_dir          = "/tmp/qmd/work"
 store_dir         = "/tmp/qmd/store"
 max_jobs          = 40

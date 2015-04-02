@@ -9,39 +9,49 @@ import (
 	"github.com/pressly/qmd/api"
 	"github.com/pressly/qmd/config"
 	"github.com/pressly/qmd/job"
+	"github.com/pressly/qmd/script"
 )
 
 var App *QMD
 
 type QMD struct {
-	Config     *config.Config
-	Controller *job.Controller
+	Config    *config.Config
+	JobCtl    *job.Controller
+	ScriptCtl *script.Controller
 }
 
-func Run(conf *config.Config) error {
+func RunOrDie(conf *config.Config) {
 	var err error
 
 	App := &QMD{
 		Config: conf,
 	}
 
-	log.Print("Starting QMD Job Controller")
-
 	// Create Job Controller.
-	App.Controller, err = job.NewController(conf)
+	App.JobCtl, err = job.NewController(conf)
 	if err != nil {
-		return err
+		log.Fatal(err)
 	}
 
-	log.Printf("Starting QMD API at %s\n", conf.Bind)
+	// Create Script Controller.
+	App.ScriptCtl, err = script.NewController(conf)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Run controllers.
+	log.Print("Starting QMD Job Controller")
+	go App.JobCtl.Run()
+
+	log.Print("Starting QMD Script Controller")
+	go App.ScriptCtl.Run()
 
 	// Start the API server.
+	log.Printf("Starting QMD API at %s\n", conf.Bind)
 	graceful.AddSignal(syscall.SIGINT, syscall.SIGTERM)
 	err = graceful.ListenAndServe(conf.Bind, api.New(conf))
 	if err != nil {
-		return err
+		log.Fatal(err)
 	}
 	graceful.Wait()
-
-	return nil
 }

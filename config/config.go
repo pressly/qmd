@@ -16,6 +16,7 @@ type Config struct {
 	Bind        string `toml:"bind"`
 	MaxProcs    int    `toml:"max_procs"`
 	DebugMode   bool   `toml:"debug_mode"`
+	ScriptDir   string `toml:"script_dir"`
 	WorkDir     string `toml:"work_dir"`
 	StoreDir    string `toml:"store_dir"`
 	MaxJobs     int    `toml:"max_jobs"`
