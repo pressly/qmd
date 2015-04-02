@@ -10,8 +10,11 @@ func TestSampleConfigFile(t *testing.T) {
 		t.Error("expected error")
 	}
 
-	_, err = New("../etc/qmd.conf.sample")
+	conf, err := New("../etc/qmd.conf.sample")
 	if err != nil {
 		t.Error(err)
+	}
+	if conf == nil {
+		t.Error("unexpected nil")
 	}
 }
