@@ -5,12 +5,9 @@ import (
 	"log"
 	"os"
 	"runtime"
-	"syscall"
 
-	//"github.com/pressly/qmd"
+	"github.com/pressly/qmd"
 	"github.com/pressly/qmd/config"
-	"github.com/pressly/qmd/server"
-	"github.com/zenazn/goji/graceful"
 )
 
 var (
@@ -38,18 +35,9 @@ func main() {
 	// Limit number of OS threads.
 	runtime.GOMAXPROCS(conf.MaxProcs)
 
-	// Create a QMD app.
-	// app, err := qmd.New(conf)
-	// if err != nil {
-	// 	log.Fatal(err)
-	// }
-
-	log.Printf("Starting QMD at %s\n", conf.Bind)
-
-	graceful.AddSignal(syscall.SIGINT, syscall.SIGTERM)
-	err = graceful.ListenAndServe(conf.Bind, server.New(conf))
+	// Run QMD.
+	err = qmd.Run(conf)
 	if err != nil {
 		log.Fatal(err)
 	}
-	graceful.Wait()
 }

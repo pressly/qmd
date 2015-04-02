@@ -1,4 +1,4 @@
-package server
+package api
 
 import (
 	"net/http"
@@ -8,8 +8,8 @@ import (
 	"github.com/zenazn/goji/web"
 	"github.com/zenazn/goji/web/middleware"
 
+	"github.com/pressly/qmd/api/script"
 	"github.com/pressly/qmd/config"
-	"github.com/pressly/qmd/server/script"
 )
 
 func New(conf *config.Config) http.Handler {

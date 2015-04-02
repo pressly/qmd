@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"net/http/httputil"
 
-	"github.com/pressly/qmd/api/script"
 	"github.com/zenazn/goji/web"
 )
 
@@ -14,7 +13,7 @@ func CreateJob(c web.C, w http.ResponseWriter, r *http.Request) {
 	dump, err := httputil.DumpRequest(r, true)
 	log.Printf("%s", dump)
 
-	var req *script.Request
+	var req *Request
 	err = json.NewDecoder(r.Body).Decode(&req)
 	if err != nil {
 		http.Error(w, err.Error(), 422)
