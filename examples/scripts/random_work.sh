@@ -1,8 +1,11 @@
 #!/bin/bash
 
-for i in {1..$RAND}; do
-    sleep 0.$RAND
+TIMES=$(( ( RANDOM % 30 )  + 1 ))
+echo "Going to work $TIMES times."
+
+for i in $(seq 1 $TIMES); do
     echo "Working on $i.."
+    sleep 0.$RANDOM
 done
 
 echo "Done."

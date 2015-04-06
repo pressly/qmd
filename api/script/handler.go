@@ -1,13 +1,16 @@
 package script
 
 import (
+	"bytes"
 	"encoding/json"
 	"log"
 	"net/http"
 	"net/http/httputil"
+	"os/exec"
 
 	"github.com/zenazn/goji/web"
 
+	"github.com/pressly/qmd/job"
 	"github.com/pressly/qmd/script"
 )
 
@@ -31,8 +34,21 @@ func CreateJob(c web.C, w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//TODO: Do the actual work.
+	cmd := exec.Command(script, req.Args...)
+	job, err := job.New(cmd)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
 
-	//TODO: Return Response instead.
-	w.Write([]byte(script))
+	result := new(bytes.Buffer)
+	go result.ReadFrom(job.Stdout)
+
+	err = job.Run()
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+
+	w.Write(result.Bytes())
 }
