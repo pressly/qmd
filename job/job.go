@@ -42,7 +42,7 @@ func New(cmd *exec.Cmd) (*Job, error) {
 	return job, nil
 }
 
-func (job *Job) Run() error {
+func (job *Job) Start() error {
 	if err := job.Cmd.Start(); err != nil {
 		return err
 	}
@@ -59,5 +59,19 @@ func (job *Job) Wait() error {
 
 	job.Duration = time.Since(job.start)
 	job.Running = false
+	return nil
+}
+
+func (job *Job) Run() error {
+	err := job.Start()
+	if err != nil {
+		return err
+	}
+
+	err = job.Wait()
+	if err != nil {
+		return err
+	}
+
 	return nil
 }

@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-func TestRunJob(t *testing.T) {
+func TestStartWaitJob(t *testing.T) {
 	// Bash command that prints "result" on STDOUT and "error" on STDERR.
 	cmd := exec.Command("bash", "-c", "echo -n result; >&2 echo -n error")
 
@@ -26,7 +26,7 @@ func TestRunJob(t *testing.T) {
 	go stdout.ReadFrom(job.Stdout)
 	go stderr.ReadFrom(job.Stderr)
 
-	err = job.Run()
+	err = job.Start()
 	if err != nil {
 		t.Error(err)
 	}
