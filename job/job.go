@@ -9,12 +9,12 @@ import (
 type Job struct {
 	*exec.Cmd
 
-	Stdin   io.WriteCloser
-	Stdout  io.Reader
-	Stderr  io.Reader
-	Running bool
-	Start   time.Time
-	End     time.Time
+	Stdin    io.WriteCloser
+	Stdout   io.Reader
+	Stderr   io.Reader
+	Running  bool
+	start    time.Time
+	Duration time.Duration
 }
 
 func New(cmd *exec.Cmd) (*Job, error) {
@@ -47,6 +47,7 @@ func (job *Job) Run() error {
 		return err
 	}
 
+	job.start = time.Now()
 	job.Running = true
 	return nil
 }
@@ -56,6 +57,7 @@ func (job *Job) Wait() error {
 		return err
 	}
 
+	job.Duration = time.Since(job.start)
 	job.Running = false
 	return nil
 }

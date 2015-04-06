@@ -17,6 +17,9 @@ func TestRunJob(t *testing.T) {
 	if job.Running {
 		t.Error("unexpected value")
 	}
+	if job.Duration != 0 {
+		t.Error("unexpected value")
+	}
 
 	// Copy job's STDOUT and STDERR to a buffer.
 	stdout, stderr := new(bytes.Buffer), new(bytes.Buffer)
@@ -36,6 +39,9 @@ func TestRunJob(t *testing.T) {
 		t.Error(err)
 	}
 	if job.Running {
+		t.Error("unexpected value")
+	}
+	if job.Duration == 0 {
 		t.Error("unexpected value")
 	}
 
