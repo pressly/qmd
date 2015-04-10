@@ -22,7 +22,7 @@ type Controller struct {
 	scripts     map[string]string // Map of relative script paths to the actual files.
 }
 
-// NewController creates new instance of Script Controller.
+// NewController creates new Controller instance.
 func NewController(conf *config.Config) (*Controller, error) {
 	info, err := os.Stat(conf.ScriptDir)
 	if err != nil {
