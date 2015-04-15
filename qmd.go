@@ -1,43 +1,29 @@
 package qmd
 
-import (
-	"log"
-	"syscall"
+import "github.com/pressly/qmd/config"
 
-	"github.com/zenazn/goji/graceful"
+type Qmd struct {
+	Config *config.Config
 
-	"github.com/pressly/qmd/api"
-	"github.com/pressly/qmd/config"
-	"github.com/pressly/qmd/job"
-	"github.com/pressly/qmd/script"
-)
+	scripts Scripts
 
-func RunOrDie(conf *config.Config) {
-	// Create Job Controller.
-	jobCtl, err := job.NewController(conf)
-	if err != nil {
-		log.Fatal(err)
+	//	queue
+}
+
+func New(conf *config.Config) *Qmd {
+	return &Qmd{
+		Config: conf,
 	}
+}
 
-	// Create Script Controller.
-	scriptCtl, err := script.NewController(conf)
-	if err != nil {
-		log.Fatal(err)
-	}
+func (qmd *Qmd) Close() {
+	return
+}
 
-	// Run controllers.
-	log.Print("Starting QMD Job Controller")
-	go jobCtl.Run()
+func (qmd *Qmd) GetScript(file string) (string, error) {
+	return qmd.scripts.Get(file)
+}
 
-	log.Print("Starting QMD Script Controller")
-	go scriptCtl.Run()
-
-	// Start the API server.
-	log.Printf("Starting QMD API at %s\n", conf.Bind)
-	graceful.AddSignal(syscall.SIGINT, syscall.SIGTERM)
-	err = graceful.ListenAndServe(conf.Bind, api.New(conf))
-	if err != nil {
-		log.Fatal(err)
-	}
-	graceful.Wait()
+func (qmd *Qmd) WatchScripts() {
+	qmd.scripts.Watch(qmd.Config.ScriptDir)
 }

@@ -33,7 +33,7 @@ coverage:
 
 build:
 	@mkdir -p ./bin
-	go build -o ./bin/qmd ./cmd/qmd/qmd.go
+	go build -o ./bin/qmd ./cmd/qmd
 
 clean:
 	@rm -rf ./bin

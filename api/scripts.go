@@ -1,14 +1,14 @@
-package script
+package api
 
 import "time"
 
-type Request struct {
+type ScriptsRequest struct {
 	Args        []string          `json:"args,omitempty"`
 	Files       map[string]string `json:"files,omitempty"`
 	CallbackURL string            `json:"callback_url"`
 }
 
-type Response struct {
+type ScriptsResponse struct {
 	Script    string     `json:"script"`
 	StartTime *time.Time `json:"start_time"`
 	EndTime   *time.Time `json:"end_time"`

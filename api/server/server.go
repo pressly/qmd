@@ -1,4 +1,4 @@
-package api
+package server
 
 import (
 	"net/http"
@@ -8,11 +8,13 @@ import (
 	"github.com/zenazn/goji/web"
 	"github.com/zenazn/goji/web/middleware"
 
-	"github.com/pressly/qmd/api/script"
-	"github.com/pressly/qmd/config"
+	"github.com/pressly/qmd"
 )
 
-func New(conf *config.Config) http.Handler {
+var App *qmd.Qmd
+
+func APIHandler(app *qmd.Qmd) http.Handler {
+	App = app
 	r := web.New()
 
 	r.Use(middleware.EnvInit)
@@ -20,7 +22,7 @@ func New(conf *config.Config) http.Handler {
 	r.Use(middleware.RealIP)
 	r.Use(middleware.NoCache)
 
-	if conf.Environment != "testing" {
+	if App.Config.Environment != "testing" {
 		r.Use(middleware.Logger)
 	}
 	r.Use(middleware.Recoverer)
@@ -28,9 +30,12 @@ func New(conf *config.Config) http.Handler {
 	r.Use(heartbeat.Route("/ping"))
 	r.Use(heartbeat.Route("/"))
 
-	scriptRoute := script.Router()
-	scriptRoute.Use(throttler.Limit(conf.MaxJobs))
-	r.Handle("/scripts/*", scriptRoute)
+	s := web.New()
+	s.Use(middleware.SubRouter)
+	s.Post("/:filename", CreateSyncJob)
+	s.Use(throttler.Limit(App.Config.MaxJobs))
+
+	r.Handle("/scripts/*", s)
 
 	return r
 }

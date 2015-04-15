@@ -5,9 +5,12 @@ import (
 	"log"
 	"os"
 	"runtime"
+	"syscall"
 
 	"github.com/pressly/qmd"
+	"github.com/pressly/qmd/api/server"
 	"github.com/pressly/qmd/config"
+	"github.com/zenazn/goji/graceful"
 )
 
 var (
@@ -36,5 +39,18 @@ func main() {
 	runtime.GOMAXPROCS(conf.MaxProcs)
 
 	// Run QMD.
-	qmd.RunOrDie(conf)
+	app := qmd.New(conf)
+	go app.WatchScripts()
+	go app.ListenQueue()
+
+	graceful.AddSignal(syscall.SIGINT, syscall.SIGTERM)
+	graceful.PreHook(app.Close)
+
+	// Start the API server.
+	log.Printf("Starting QMD API at %s\n", conf.Bind)
+	err = graceful.ListenAndServe(conf.Bind, server.APIHandler(app))
+	if err != nil {
+		log.Fatal(err)
+	}
+	graceful.Wait()
 }
