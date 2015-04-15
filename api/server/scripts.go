@@ -1,6 +1,7 @@
 package server
 
 import (
+	"bufio"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -44,9 +45,24 @@ func CreateSyncJob(c web.C, w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Send the job's STDOUT over HTTP as soon as possible.
-	// Wait closes the job.Stdout, so the .
-	go io.Copy(w, job.Stdout)
+	// Make the HTTP streaming possible by flushing each line.
+	go func() {
+		if f, ok := w.(http.Flusher); ok {
+			r := bufio.NewReader(job.Stdout)
+			for {
+				line, err := r.ReadBytes('\n')
+				w.Write(line)
+				f.Flush()
+				if err != nil {
+					return
+				}
+			}
+		} else {
+			io.Copy(w, job.Stdout)
+		}
+	}()
 
+	// Wait for the job to finish.
 	err = job.Wait()
 	if err != nil {
 		http.Error(w, err.Error(), 500)
