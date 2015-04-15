@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"encoding/json"
 	"io"
+	"log"
 	"net/http"
 	"os/exec"
 
@@ -37,6 +38,8 @@ func CreateSyncJob(c web.C, w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	log.Printf("%v starting job", c.URLParams["filename"])
+
 	// Start the job.
 	err = job.Start()
 	if err != nil {
@@ -68,4 +71,6 @@ func CreateSyncJob(c web.C, w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), 500)
 		return
 	}
+
+	log.Printf("%v finished in %v", c.URLParams["filename"], job.Duration)
 }
