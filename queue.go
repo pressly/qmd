@@ -2,8 +2,8 @@ package qmd
 
 type queue struct {
 	WorkDir string
-	Waiting chan *Job
-	Running chan *Job
+	Waiting chan *job
+	Running chan *job
 	//Done chan
 }
 
