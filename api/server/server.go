@@ -3,7 +3,6 @@ package server
 import (
 	"net/http"
 
-	"github.com/goware/throttler"
 	"github.com/pressly/gohttpware/heartbeat"
 	"github.com/zenazn/goji/web"
 	"github.com/zenazn/goji/web/middleware"
@@ -11,31 +10,27 @@ import (
 	"github.com/pressly/qmd"
 )
 
-var App *qmd.Qmd
+var Qmd *qmd.Qmd
 
-func APIHandler(app *qmd.Qmd) http.Handler {
-	App = app
-	r := web.New()
+func APIHandler(qmd *qmd.Qmd) http.Handler {
+	Qmd = qmd
+	h := web.New()
 
-	r.Use(middleware.EnvInit)
-	r.Use(middleware.RequestID)
-	r.Use(middleware.RealIP)
-	r.Use(middleware.NoCache)
+	h.Use(middleware.EnvInit)
+	h.Use(middleware.RequestID)
+	h.Use(middleware.RealIP)
+	h.Use(middleware.NoCache)
 
-	if App.Config.Environment != "testing" {
-		r.Use(middleware.Logger)
+	if Qmd.Config.Environment != "testing" {
+		h.Use(middleware.Logger)
 	}
-	r.Use(middleware.Recoverer)
+	h.Use(middleware.Recoverer)
 
-	r.Use(heartbeat.Route("/ping"))
-	r.Use(heartbeat.Route("/"))
+	h.Use(heartbeat.Route("/ping"))
+	h.Use(heartbeat.Route("/"))
 
-	s := web.New()
-	s.Use(middleware.SubRouter)
-	s.Post("/:filename", CreateSyncJob)
-	s.Use(throttler.Limit(App.Config.MaxJobs))
+	h.Handle("/scripts/*", ScriptsHandler())
+	h.Handle("/job/*", JobHandler())
 
-	r.Handle("/scripts/*", s)
-
-	return r
+	return h
 }

@@ -1,18 +1,22 @@
 package server
 
 import (
-	"bufio"
 	"encoding/json"
-	"io"
-	"log"
 	"net/http"
 	"os/exec"
 
 	"github.com/zenazn/goji/web"
+	"github.com/zenazn/goji/web/middleware"
 
-	"github.com/pressly/qmd"
 	"github.com/pressly/qmd/api"
 )
+
+func ScriptsHandler() http.Handler {
+	s := web.New()
+	s.Use(middleware.SubRouter)
+	s.Post("/:filename", CreateSyncJob)
+	return s
+}
 
 func CreateSyncJob(c web.C, w http.ResponseWriter, r *http.Request) {
 	// Decode request data.
@@ -23,8 +27,10 @@ func CreateSyncJob(c web.C, w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	//log.Printf("\n\nreq: %#v\n\n", req)
+
 	// Get script path.
-	script, err := App.GetScript(c.URLParams["filename"])
+	script, err := Qmd.GetScript(c.URLParams["filename"])
 	if err != nil {
 		http.Error(w, err.Error(), 404)
 		return
@@ -32,45 +38,21 @@ func CreateSyncJob(c web.C, w http.ResponseWriter, r *http.Request) {
 
 	// Create QMD job to run the command.
 	cmd := exec.Command(script, req.Args...)
-	job, err := qmd.Job(cmd)
+	job, err := Qmd.Job(cmd)
 	if err != nil {
 		http.Error(w, err.Error(), 500)
 		return
 	}
 
-	log.Printf("%v starting job", c.URLParams["filename"])
+	// Enqueue job.
+	Qmd.Enqueue(job)
 
-	// Start the job.
-	err = job.Start()
-	if err != nil {
-		http.Error(w, err.Error(), 500)
-		return
-	}
+	//TODO: This is Sync operation, so if the client closes the request,
+	//      before getting the response, we should kill the job.
+	//      Use w.(http.CloseNotifier).
 
-	// Send the job's STDOUT over HTTP as soon as possible.
-	// Make the HTTP streaming possible by flushing each line.
-	go func() {
-		if f, ok := w.(http.Flusher); ok {
-			r := bufio.NewReader(job.Stdout)
-			for {
-				line, err := r.ReadBytes('\n')
-				w.Write(line)
-				f.Flush()
-				if err != nil {
-					return
-				}
-			}
-		} else {
-			io.Copy(w, job.Stdout)
-		}
-	}()
-
-	// Wait for the job to finish.
-	err = job.Wait()
-	if err != nil {
-		http.Error(w, err.Error(), 500)
-		return
-	}
-
-	log.Printf("%v finished in %v", c.URLParams["filename"], job.Duration)
+	// Redirect to the actual /job/:id/result handler.
+	// Post/Redirect/Get pattern would be too expensive.
+	c.URLParams["id"] = job.ID
+	JobResult(c, w, r)
 }

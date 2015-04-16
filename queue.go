@@ -1,50 +1,74 @@
 package qmd
 
-type queue struct {
-	WorkDir string
-	Waiting chan *job
-	Running chan *job
-	//Done chan
+import (
+	"errors"
+	"log"
+)
+
+func StartWorker(id int, workerPool chan chan *Job /*, quitWorkerPool chan chan struct{}*/) {
+	// quit := make(chan struct{})
+	// quitWorkerPool <- quit
+
+	worker := make(chan *Job)
+
+	for {
+		// Mark this worker as available.
+		workerPool <- worker
+		//log.Printf("len(workerPool) = %d\n", len(workerPool))
+
+		select {
+		// Wait for a job.
+		case job := <-worker:
+			// Run a job.
+			//log.Printf("worker[%d]: Running job #%v\n", id, job.ID)
+			job.Run()
+			//log.Printf("worker[%d]: Job #%v done\n", id, job.ID)
+
+			// case <-quit:
+			// 	log.Printf("worker[%d]: Stopping\n", id)
+			// 	return
+		}
+	}
 }
 
-// NewController creates new Controller instance.
 func (qmd *Qmd) ListenQueue() {
-	select {}
-	// info, err := os.Stat(conf.WorkDir)
-	// if err != nil {
-	// 	return nil, errors.New("work_dir=\"" + conf.WorkDir + "\": " + err.Error())
-	// }
-	// if !info.IsDir() {
-	// 	return nil, errors.New("work_dir=\"" + conf.WorkDir + "\": not a directory")
-	// }
+	workerPool := make(chan chan *Job, qmd.Config.MaxJobs)
+	// quitWorkerPool := make(chan chan struct{})
 
-	// //TODO: Check the actual path. Create directory etc.
-	// Ctl = &Controller{
-	// 	WorkDir: conf.WorkDir,
-	// 	Waiting: make(chan *Job),
-	// 	Running: make(chan *Job, conf.MaxJobs),
-	// }
+	log.Printf("Starting %v QMD workers\n", qmd.Config.MaxJobs)
+	for i := 0; i < qmd.Config.MaxJobs; i++ {
+		go StartWorker(i, workerPool /*, quitWorkerPool*/)
+	}
 
-	// for {
-	// 	select {
-	// 	//case job, ok := <-c.Waiting:
-	// 	}
-	// }
+	for {
+		select {
+		case job := <-qmd.Queue:
+			// Wait for some worker to become available.
+			worker := <-workerPool
+			// Send it a job.
+			worker <- job
+
+			// case <-qmd.Closing:
+			// 	log.Printf("ListenQueue(): Closing QMD workers\n")
+			// 	for quit := range quitWorkerPool {
+			// 		quit <- struct{}{}
+			// 	}
+			// 	return
+		}
+	}
 }
 
-// func (qmd *Qmd) Enqueue() {
-// 	//if qmd.Queue == nil {err}
-// 	return
-// }
+func (qmd *Qmd) Enqueue(job *Job) {
+	qmd.Queue <- job
+}
 
-// func (c *Controller) Add(job *Job) error {
-// 	c.Waiting <- job
-// }
+func (qmd *Qmd) GetJob(id string) (*Job, error) {
+	qmd.muJobs.Lock()
+	defer qmd.muJobs.Unlock()
 
-// func (c *Controller) RunCmd(cmd *Cmd) *Job {
-// 	job := Job{
-// 		Cmd: cmd,
-// 	}
-
-// 	job.Run()
-// }
+	job, ok := qmd.Jobs[id]
+	if !ok {
+		return nil, errors.New("job doesn't exist")
+	}
+	return job, nil
+}

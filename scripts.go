@@ -39,7 +39,7 @@ func (s *Scripts) Watch(dir string) {
 
 // Walk walks the ScriptDir and finds all the shell scripts.
 func (s *Scripts) Walk(dir string) error {
-	log.Println("Scripts: Walking script_dir..")
+	//log.Println("Scripts: Walking script_dir..")
 
 	files := map[string]string{}
 	if err := filepath.Walk(dir, func(file string, info os.FileInfo, err error) error {
@@ -50,7 +50,7 @@ func (s *Scripts) Walk(dir string) error {
 					return err
 				}
 				files[rel] = file
-				log.Println("Scripts: Found:", rel)
+				//log.Println("Scripts: Found:", rel)
 			}
 		}
 		return nil
