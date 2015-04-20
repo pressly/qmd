@@ -18,6 +18,9 @@ func ScriptsHandler() http.Handler {
 	return s
 }
 
+//TODO: This is Sync operation, so if the client closes the request,
+//      before getting the response, we should kill the job.
+//      Use w.(http.CloseNotifier).
 func CreateSyncJob(c web.C, w http.ResponseWriter, r *http.Request) {
 	// Decode request data.
 	var req *api.ScriptsRequest
@@ -46,10 +49,6 @@ func CreateSyncJob(c web.C, w http.ResponseWriter, r *http.Request) {
 
 	// Enqueue job.
 	Qmd.Enqueue(job)
-
-	//TODO: This is Sync operation, so if the client closes the request,
-	//      before getting the response, we should kill the job.
-	//      Use w.(http.CloseNotifier).
 
 	// Redirect to the actual /job/:id/result handler.
 	// Post/Redirect/Get pattern would be too expensive.

@@ -7,6 +7,7 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
+	"os"
 	"os/exec"
 	"syscall"
 
@@ -22,6 +23,8 @@ func JobHandler() http.Handler {
 
 	s.Get("/:id/result", JobResult)
 	s.Get("/:id/stdout", JobStdout)
+	s.Get("/:id/stderr", JobStderr)
+	s.Get("/:id/qmd_out", JobQmdOut)
 
 	return s
 }
@@ -46,7 +49,9 @@ func JobResult(c web.C, w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	output, _ := ioutil.ReadAll(job.Stdout)
+	stdout, _ := ioutil.ReadFile(job.StdoutFile)
+	//stderr, _ := ioutil.ReadFile(job.StderrFile)
+	qmdOut, _ := ioutil.ReadFile(job.ExtraOutFile)
 
 	resp := api.ScriptsResponse{
 		ID:          job.ID,
@@ -56,10 +61,9 @@ func JobResult(c web.C, w http.ResponseWriter, r *http.Request) {
 		Status:      status,
 		StartTime:   job.StartTime,
 		EndTime:     job.EndTime,
-		Duration:    job.Duration,
-		Output:      string(output),
-		//TODO: ExecLog:
-		ExecLog: "TODO",
+		Duration:    fmt.Sprintf("%d", job.Duration),
+		Output:      string(qmdOut),
+		ExecLog:     string(stdout),
 	}
 
 	enc := json.NewEncoder(w)
@@ -77,11 +81,76 @@ func JobStdout(c web.C, w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	job.WaitForStart()
+
+	file, err := os.Open(job.StdoutFile)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+
+	// Wait for the job to finish.
+	//TODO: This should be at the end of this file to allow streaming.
+	job.Wait()
+
+	streamData(w, file)
+}
+
+func JobStderr(c web.C, w http.ResponseWriter, r *http.Request) {
+	job, err := Qmd.GetJob(c.URLParams["id"])
+	if err != nil {
+		http.Error(w, err.Error(), 404)
+		return
+	}
+
+	job.WaitForStart()
+
+	file, err := os.Open(job.StderrFile)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+
+	// Wait for the job to finish.
+	//TODO: This should be at the end of this file to allow streaming.
+	job.Wait()
+
+	streamData(w, file)
+}
+
+func JobQmdOut(c web.C, w http.ResponseWriter, r *http.Request) {
+	job, err := Qmd.GetJob(c.URLParams["id"])
+	if err != nil {
+		http.Error(w, err.Error(), 404)
+		return
+	}
+
+	job.WaitForStart()
+
+	file, err := os.Open(job.ExtraOutFile)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+
+	// Wait for the job to finish.
+	//TODO: This should be at the end of this file to allow streaming.
+	job.Wait()
+
+	streamData(w, file)
+}
+
+func streamData(w io.Writer, r io.Reader) {
 	// Send the job's STDOUT over HTTP as soon as possible.
 	// Make the HTTP streaming possible by flushing each line.
+	doneStreaming := make(chan struct{}, 0)
 	go func() {
+		defer func() {
+			close(doneStreaming)
+		}()
+
 		if f, ok := w.(http.Flusher); ok {
-			r := bufio.NewReader(job.Stdout)
+			r := bufio.NewReader(r)
 			for {
 				line, err := r.ReadBytes('\n')
 				w.Write(line)
@@ -93,10 +162,9 @@ func JobStdout(c web.C, w http.ResponseWriter, r *http.Request) {
 				}
 			}
 		} else {
-			io.Copy(w, job.Stdout)
+			io.Copy(w, r)
 		}
 	}()
 
-	// Wait for the job to finish.
-	job.Wait()
+	<-doneStreaming
 }

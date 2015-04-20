@@ -2,8 +2,9 @@ package qmd
 
 import (
 	"crypto/sha1"
+	"errors"
 	"fmt"
-	"io"
+	"os"
 	"os/exec"
 	"sync"
 	"time"
@@ -15,13 +16,14 @@ type Job struct {
 	*exec.Cmd
 
 	ID        string
-	Stdin     io.WriteCloser
-	Stdout    io.Reader
-	Stderr    io.Reader
 	Running   bool
 	StartTime time.Time
 	EndTime   time.Time
 	Duration  time.Duration
+
+	StdoutFile   string
+	StderrFile   string
+	ExtraOutFile string
 
 	CallbackURL string
 	Started     chan struct{}
@@ -31,49 +33,60 @@ type Job struct {
 }
 
 func (qmd *Qmd) Job(cmd *exec.Cmd) (*Job, error) {
-	var err error
-
-	cmd.Dir = qmd.Config.WorkDir
-	cmd.Env = append(cmd.Env,
-		"QMD_TMP="+qmd.Config.WorkDir,
-		"QMD_STORE="+qmd.Config.StoreDir,
-		"QMD_OUT="+qmd.Config.WorkDir+"/out",
-	)
-
 	job := &Job{
 		Cmd:      cmd,
 		Started:  make(chan struct{}, 0),
 		Finished: make(chan struct{}, 0),
 	}
 
-	job.Stdout, err = cmd.StdoutPipe()
-	if err != nil {
-		return nil, err
-	}
-
-	job.Stderr, err = cmd.StderrPipe()
-	if err != nil {
-		return nil, err
-	}
-
-	job.Stdin, err = cmd.StdinPipe()
-	if err != nil {
-		return nil, err
-	}
-
+	// Assign an unique ID to the job.
 	h := sha1.New()
 	h.Write(uuid.NewRandom())
 	job.ID = fmt.Sprintf("%x", h.Sum(nil))
 
+	// Create working directory.
+	job.Cmd.Dir = qmd.Config.WorkDir + "/" + job.ID + "/tmp"
+	err := os.MkdirAll(job.Cmd.Dir, 0777)
+	if err != nil {
+		return nil, err
+	}
+
+	job.StdoutFile = qmd.Config.WorkDir + "/" + job.ID + "/stdout"
+	job.StderrFile = qmd.Config.WorkDir + "/" + job.ID + "/stderr"
+	job.ExtraOutFile = qmd.Config.WorkDir + "/" + job.ID + "/QMD_OUT"
+
+	cmd.Env = append(cmd.Env,
+		"QMD_TMP="+job.Cmd.Dir,
+		"QMD_STORE="+qmd.Config.StoreDir,
+		"QMD_OUT="+job.ExtraOutFile,
+	)
+
+	// Save this job to the QMD.
+	//TODO: Check for possible ID colissions. Generate new ID & retry.
 	qmd.muJobs.Lock()
 	defer qmd.muJobs.Unlock()
-	//TODO: Check for possible ID colissions. Generate new ID & retry.
 	qmd.Jobs[job.ID] = job
 
 	return job, nil
 }
 
 func (job *Job) Start() error {
+	var err error
+
+	if job.Running {
+		return errors.New(fmt.Sprintf("job #%v already running", job.ID))
+	}
+
+	job.Cmd.Stdout, err = os.Create(job.StdoutFile)
+	if err != nil {
+		return err
+	}
+
+	job.Cmd.Stderr, err = os.Create(job.StderrFile)
+	if err != nil {
+		return err
+	}
+
 	if err := job.Cmd.Start(); err != nil {
 		return err
 	}
@@ -82,6 +95,10 @@ func (job *Job) Start() error {
 	job.Running = true
 	close(job.Started)
 	return nil
+}
+
+func (job *Job) WaitForStart() {
+	<-job.Started
 }
 
 // Wait waits for job to finish.
