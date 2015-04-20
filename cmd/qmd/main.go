@@ -16,9 +16,6 @@ import (
 var (
 	flags    = flag.NewFlagSet("qmd", flag.ExitOnError)
 	confFile = flags.String("config", "", "path to config file")
-
-	bind     = flags.String("bind", "0.0.0.0:8484", "<addr>:<port> to bind HTTP server")
-	maxProcs = flags.Int("max-procs", 0, "GOMAXPROCS, default is NumCpu()")
 )
 
 func main() {
