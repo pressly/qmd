@@ -8,8 +8,6 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
-	"os/exec"
-	"syscall"
 
 	"github.com/zenazn/goji/web"
 	"github.com/zenazn/goji/web/middleware"
@@ -108,21 +106,19 @@ func JobResult(c web.C, w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Wait for the job to finish.
-	err = job.Wait()
-	status := "OK"
-	if err != nil {
-		if e, ok := err.(*exec.ExitError); ok {
-			if s, ok := e.Sys().(syscall.WaitStatus); ok {
-				if s.ExitStatus() != 0 {
-					status = fmt.Sprintf("%d", s.ExitStatus())
-				}
-			}
-		}
-	}
+	_ = job.Wait()
 
 	stdout, _ := ioutil.ReadFile(job.StdoutFile)
 	//stderr, _ := ioutil.ReadFile(job.StderrFile)
 	qmdOut, _ := ioutil.ReadFile(job.QmdOutFile)
+
+	var status string
+	if job.StatusCode == 0 {
+		// "OK" for backward compatibility.
+		status = "OK"
+	} else {
+		status = fmt.Sprintf("%v", job.StatusCode)
+	}
 
 	resp := api.ScriptsResponse{
 		ID:          job.ID,

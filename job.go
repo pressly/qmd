@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"sync"
+	"syscall"
 	"time"
 
 	"code.google.com/p/go-uuid/uuid"
@@ -16,21 +17,23 @@ import (
 type Job struct {
 	*exec.Cmd
 
-	ID        string
-	State     JobState
-	StartTime time.Time
-	EndTime   time.Time
-	Duration  time.Duration
+	ID    string
+	State JobState
+
+	StartTime   time.Time
+	EndTime     time.Time
+	Duration    time.Duration
+	StatusCode  int
+	CallbackURL string
 
 	StdoutFile string
 	StderrFile string
 	QmdOutFile string
 
-	CallbackURL string
-	Started     chan struct{}
-	WaitOnce    sync.Once
-	Finished    chan struct{}
-	Err         error
+	Started  chan struct{}
+	WaitOnce sync.Once
+	Finished chan struct{}
+	Err      error
 }
 
 type JobState int
@@ -130,12 +133,20 @@ func (job *Job) Wait() error {
 
 	// Prevent running cmd.Wait() multiple times.
 	job.WaitOnce.Do(func() {
-		if err := job.Cmd.Wait(); err != nil {
-			job.Err = err
-		}
+		err := job.Cmd.Wait()
 		job.Duration = time.Since(job.StartTime)
 		job.EndTime = job.StartTime.Add(job.Duration)
 		job.State = Finished
+
+		if err != nil {
+			job.Err = err
+			if e, ok := err.(*exec.ExitError); ok {
+				if s, ok := e.Sys().(syscall.WaitStatus); ok {
+					job.StatusCode = s.ExitStatus()
+				}
+			}
+		}
+
 		close(job.Finished)
 		log.Printf("/jobs/%v finished\n", job.ID)
 	})
