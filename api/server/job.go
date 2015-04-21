@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
+	"sort"
 
 	"github.com/zenazn/goji/web"
 	"github.com/zenazn/goji/web/middleware"
@@ -32,22 +33,37 @@ func JobHandler() http.Handler {
 }
 
 func ListJobs(c web.C, w http.ResponseWriter, r *http.Request) {
-	var running, enqueued, finished, orphans []*qmd.Job
+	var running, enqueued, finished, interrupted, initialized []string
+
+	Qmd.MuJobs.Lock()
+	defer Qmd.MuJobs.Unlock()
 	for _, job := range Qmd.Jobs {
 		switch job.State {
+		case qmd.Initialized:
+			initialized = append(initialized, job.ID)
 		case qmd.Running:
-			running = append(running, job)
+			running = append(running, job.ID)
 		case qmd.Enqueued:
-			enqueued = append(enqueued, job)
+			enqueued = append(enqueued, job.ID)
 		case qmd.Finished:
-			finished = append(finished, job)
-		default:
-			orphans = append(orphans, job)
+			finished = append(finished, job.ID)
+		case qmd.Interrupted:
+			interrupted = append(interrupted, job.ID)
+
 		}
 	}
+	sort.Strings(running)
+	sort.Strings(enqueued)
+	sort.Strings(finished)
+	sort.Strings(interrupted)
+	sort.Strings(initialized)
+
+	fmt.Fprintf(w, `<table><tr><th>Running</th><th>Enqueued</th><th>Finished</th><th>Interrupted</th><th>Orhans</th></tr>`)
+	fmt.Fprintf(w, `<tr><td>%d</td><td>%d</td><td>%d</td><td>%d</td><td>%d</td></tr></table>`, len(running), len(enqueued), len(finished), len(interrupted), len(initialized))
 
 	fmt.Fprintf(w, `<h1>Running (%v jobs)</h1>`, len(running))
-	for _, job := range running {
+	for _, id := range running {
+		job := Qmd.Jobs[id]
 		fmt.Fprintf(w, `<a href="/jobs/%v">Job %v</a> (`, job.ID, job.ID)
 		fmt.Fprintf(w, `<a href="/jobs/%v/result">result</a>, `, job.ID)
 		fmt.Fprintf(w, `<a href="/jobs/%v/stdout">stdout</a>, `, job.ID)
@@ -55,8 +71,9 @@ func ListJobs(c web.C, w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, `<a href="/jobs/%v/QMD_OUT">QMD_OUT</a>)<br>`, job.ID)
 	}
 
-	fmt.Fprintf(w, `<h1>Enqueued(%v jobs)</h1>`, len(enqueued))
-	for _, job := range enqueued {
+	fmt.Fprintf(w, `<h1>Enqueued - waiting (%v jobs)</h1>`, len(enqueued))
+	for _, id := range enqueued {
+		job := Qmd.Jobs[id]
 		fmt.Fprintf(w, `<a href="/jobs/%v">Job %v</a> (`, job.ID, job.ID)
 		fmt.Fprintf(w, `<a href="/jobs/%v/result">result</a>, `, job.ID)
 		fmt.Fprintf(w, `<a href="/jobs/%v/stdout">stdout</a>, `, job.ID)
@@ -65,7 +82,8 @@ func ListJobs(c web.C, w http.ResponseWriter, r *http.Request) {
 	}
 
 	fmt.Fprintf(w, `<h1>Finished (%v jobs)</h1>`, len(finished))
-	for _, job := range finished {
+	for _, id := range finished {
+		job := Qmd.Jobs[id]
 		fmt.Fprintf(w, `<a href="/jobs/%v">Job %v</a> (`, job.ID, job.ID)
 		fmt.Fprintf(w, `<a href="/jobs/%v/result">result</a>, `, job.ID)
 		fmt.Fprintf(w, `<a href="/jobs/%v/stdout">stdout</a>, `, job.ID)
@@ -73,8 +91,9 @@ func ListJobs(c web.C, w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, `<a href="/jobs/%v/QMD_OUT">QMD_OUT</a>)<br>`, job.ID)
 	}
 
-	fmt.Fprintf(w, `<h1>Orphans (%v jobs)</h1>`, len(orphans))
-	for _, job := range orphans {
+	fmt.Fprintf(w, `<h1>Interrupted (%v jobs)</h1>`, len(interrupted))
+	for _, id := range interrupted {
+		job := Qmd.Jobs[id]
 		fmt.Fprintf(w, `<a href="/jobs/%v">Job %v</a> (`, job.ID, job.ID)
 		fmt.Fprintf(w, `<a href="/jobs/%v/result">result</a>, `, job.ID)
 		fmt.Fprintf(w, `<a href="/jobs/%v/stdout">stdout</a>, `, job.ID)
@@ -82,6 +101,15 @@ func ListJobs(c web.C, w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, `<a href="/jobs/%v/QMD_OUT">QMD_OUT</a>)<br>`, job.ID)
 	}
 
+	fmt.Fprintf(w, `<h1>Orphans (%v jobs)</h1>`, len(initialized))
+	for _, id := range initialized {
+		job := Qmd.Jobs[id]
+		fmt.Fprintf(w, `<a href="/jobs/%v">Job %v</a> (`, job.ID, job.ID)
+		fmt.Fprintf(w, `<a href="/jobs/%v/result">result</a>, `, job.ID)
+		fmt.Fprintf(w, `<a href="/jobs/%v/stdout">stdout</a>, `, job.ID)
+		fmt.Fprintf(w, `<a href="/jobs/%v/stderr">stderr</a>, `, job.ID)
+		fmt.Fprintf(w, `<a href="/jobs/%v/QMD_OUT">QMD_OUT</a>)<br>`, job.ID)
+	}
 }
 
 func Job(c web.C, w http.ResponseWriter, r *http.Request) {
@@ -148,7 +176,7 @@ func JobStdout(c web.C, w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	job.WaitForStart()
+	<-job.Started
 
 	file, err := os.Open(job.StdoutFile)
 	if err != nil {
@@ -170,7 +198,7 @@ func JobStderr(c web.C, w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	job.WaitForStart()
+	<-job.Started
 
 	file, err := os.Open(job.StderrFile)
 	if err != nil {
@@ -192,7 +220,7 @@ func JobQmdOut(c web.C, w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	job.WaitForStart()
+	<-job.Started
 
 	file, err := os.Open(job.QmdOutFile)
 	if err != nil {
@@ -210,7 +238,7 @@ func JobQmdOut(c web.C, w http.ResponseWriter, r *http.Request) {
 func streamData(w io.Writer, r io.Reader) {
 	// Send the job's STDOUT over HTTP as soon as possible.
 	// Make the HTTP streaming possible by flushing each line.
-	doneStreaming := make(chan struct{}, 0)
+	doneStreaming := make(chan struct{})
 	go func() {
 		defer func() {
 			close(doneStreaming)

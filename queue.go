@@ -3,6 +3,7 @@ package qmd
 import (
 	"errors"
 	"log"
+	"time"
 )
 
 func StartWorker(id int, workerPool chan chan *Job /*, quitWorkerPool chan chan struct{}*/) {
@@ -19,14 +20,25 @@ func StartWorker(id int, workerPool chan chan *Job /*, quitWorkerPool chan chan 
 		select {
 		// Wait for a job.
 		case job := <-worker:
-			// Run a job.
-			//log.Printf("worker[%d]: Running job #%v\n", id, job.ID)
-			job.Run()
-			//log.Printf("worker[%d]: Job #%v done\n", id, job.ID)
 
-			// case <-quit:
-			// 	log.Printf("worker[%d]: Stopping\n", id)
-			// 	return
+			// Run a job.
+			go job.Run()
+			<-job.Started
+
+			select {
+			// Wait for the job to finish.
+			case <-job.Finished:
+
+			// Or kill it, if it doesn't finish in a specified time.
+			case <-time.After(500 * time.Millisecond):
+				if job.Kill() == nil {
+					<-job.Finished
+				}
+
+				// case <-quit:
+				// 	log.Printf("worker[%d]: Stopping\n", id)
+				// 	return
+			}
 		}
 	}
 }
@@ -42,10 +54,10 @@ func (qmd *Qmd) ListenQueue() {
 
 	for {
 		select {
-		case job := <-qmd.Queue:
-			// Wait for some worker to become available.
-			worker := <-workerPool
+		// Wait for some worker to become available.
+		case worker := <-workerPool:
 			// Send it a job.
+			job := <-qmd.Queue
 			worker <- job
 
 			// case <-qmd.Closing:
@@ -64,8 +76,8 @@ func (qmd *Qmd) Enqueue(job *Job) {
 }
 
 func (qmd *Qmd) GetJob(id string) (*Job, error) {
-	qmd.muJobs.Lock()
-	defer qmd.muJobs.Unlock()
+	qmd.MuJobs.Lock()
+	defer qmd.MuJobs.Unlock()
 
 	job, ok := qmd.Jobs[id]
 	if !ok {

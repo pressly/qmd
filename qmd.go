@@ -12,7 +12,7 @@ type Qmd struct {
 	Scripts Scripts
 	Queue   chan *Job
 
-	muJobs sync.Mutex // guards Jobs
+	MuJobs sync.Mutex
 	Jobs   map[string]*Job
 
 	Closing chan struct{}
@@ -21,7 +21,7 @@ type Qmd struct {
 func New(conf *config.Config) *Qmd {
 	return &Qmd{
 		Config:  conf,
-		Queue:   make(chan *Job),
+		Queue:   make(chan *Job, 4096),
 		Jobs:    make(map[string]*Job),
 		Closing: make(chan struct{}, 1),
 	}

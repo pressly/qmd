@@ -30,9 +30,13 @@ type Job struct {
 	StderrFile string
 	QmdOutFile string
 
-	Started  chan struct{}
-	WaitOnce sync.Once
+	// Started channel blocks until the job is started.
+	Started chan struct{}
+	// Finished channel blocks until the job is finished.
+	// Convinient with select{} statement with timeout.
 	Finished chan struct{}
+
+	WaitOnce sync.Once
 	Err      error
 }
 
@@ -43,14 +47,15 @@ const (
 	Enqueued
 	Running
 	Finished
+	Interrupted
 )
 
 func (qmd *Qmd) Job(cmd *exec.Cmd) (*Job, error) {
 	job := &Job{
 		State:    Initialized,
 		Cmd:      cmd,
-		Started:  make(chan struct{}, 0),
-		Finished: make(chan struct{}, 0),
+		Started:  make(chan struct{}),
+		Finished: make(chan struct{}),
 	}
 
 	// Assign an unique ID to the job.
@@ -77,8 +82,8 @@ func (qmd *Qmd) Job(cmd *exec.Cmd) (*Job, error) {
 
 	// Save this job to the QMD.
 	//TODO: Check for possible ID colissions. Generate new ID & retry.
-	qmd.muJobs.Lock()
-	defer qmd.muJobs.Unlock()
+	qmd.MuJobs.Lock()
+	defer qmd.MuJobs.Unlock()
 	qmd.Jobs[job.ID] = job
 
 	return job, nil
@@ -113,6 +118,9 @@ func (job *Job) Start() error {
 	// job.ExtraFiles = append(job.ExtraFiles, qmdOut)
 
 	if err := job.Cmd.Start(); err != nil {
+		close(job.Started)
+		close(job.Finished)
+		job.Err = err
 		return err
 	}
 
@@ -122,21 +130,24 @@ func (job *Job) Start() error {
 	return nil
 }
 
-func (job *Job) WaitForStart() {
-	<-job.Started
-}
-
 // Wait waits for job to finish.
 // It closes the Stdout and Stderr pipes.
 func (job *Job) Wait() error {
+	// Wait for Start(), if not already invoked.
 	<-job.Started
+
+	if job.State != Running {
+		return job.Err
+	}
 
 	// Prevent running cmd.Wait() multiple times.
 	job.WaitOnce.Do(func() {
 		err := job.Cmd.Wait()
 		job.Duration = time.Since(job.StartTime)
 		job.EndTime = job.StartTime.Add(job.Duration)
-		job.State = Finished
+		if job.State != Interrupted {
+			job.State = Finished
+		}
 
 		if err != nil {
 			job.Err = err
@@ -151,6 +162,7 @@ func (job *Job) Wait() error {
 		log.Printf("/jobs/%v finished\n", job.ID)
 	})
 
+	// Make sure the job.WaitOnce finished.
 	<-job.Finished
 
 	return job.Err
@@ -170,15 +182,24 @@ func (job *Job) Run() error {
 	return nil
 }
 
+// TODO: Enable clean-up by sending Signal(os.Interrupt) first?
+func (job *Job) Kill() error {
+	job.State = Interrupted
+	return job.Cmd.Process.Kill()
+}
+
 func (s JobState) String() string {
 	switch s {
+	case Initialized:
+		return "Initialized"
 	case Enqueued:
 		return "Enqueued"
 	case Running:
 		return "Running"
 	case Finished:
 		return "Finished"
-	default:
-		return "Initialized"
+	case Interrupted:
+		return "Interrupted"
 	}
+	panic("unreachable")
 }
