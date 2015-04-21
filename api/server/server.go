@@ -20,10 +20,6 @@ func APIHandler(qmd *qmd.Qmd) http.Handler {
 	h.Use(middleware.RequestID)
 	h.Use(middleware.RealIP)
 	h.Use(middleware.NoCache)
-
-	if Qmd.Config.Environment != "testing" {
-		h.Use(middleware.Logger)
-	}
 	h.Use(middleware.Recoverer)
 
 	h.Use(heartbeat.Route("/ping"))

@@ -12,7 +12,6 @@ var ErrNoConfFile = errors.New("no configuration file specified")
 
 // Config holds configuration read from config file.
 type Config struct {
-	Environment string `toml:"environment"`
 	Bind        string `toml:"bind"`
 	MaxProcs    int    `toml:"max_procs"`
 	DebugMode   bool   `toml:"debug_mode"`
