@@ -1,5 +1,5 @@
 bind              = "0.0.0.0:8484"
-max_procs         = 1
+max_procs         = -1
 debug_mode        = true
 script_dir        = "./examples/scripts"
 work_dir          = "/tmp"
