@@ -30,7 +30,8 @@ func APIHandler(qmd *qmd.Qmd) http.Handler {
 	h.Use(heartbeat.Route("/"))
 
 	h.Handle("/scripts/*", ScriptsHandler())
-	h.Handle("/job/*", JobHandler())
+	h.Get("/jobs", ListJobs)
+	h.Handle("/jobs/*", JobHandler())
 
 	return h
 }

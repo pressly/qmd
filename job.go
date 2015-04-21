@@ -4,6 +4,7 @@ import (
 	"crypto/sha1"
 	"errors"
 	"fmt"
+	"log"
 	"os"
 	"os/exec"
 	"sync"
@@ -16,14 +17,14 @@ type Job struct {
 	*exec.Cmd
 
 	ID        string
-	Running   bool
+	State     JobState
 	StartTime time.Time
 	EndTime   time.Time
 	Duration  time.Duration
 
-	StdoutFile   string
-	StderrFile   string
-	ExtraOutFile string
+	StdoutFile string
+	StderrFile string
+	QmdOutFile string
 
 	CallbackURL string
 	Started     chan struct{}
@@ -32,8 +33,18 @@ type Job struct {
 	Err         error
 }
 
+type JobState int
+
+const (
+	Initialized JobState = iota
+	Enqueued
+	Running
+	Finished
+)
+
 func (qmd *Qmd) Job(cmd *exec.Cmd) (*Job, error) {
 	job := &Job{
+		State:    Initialized,
 		Cmd:      cmd,
 		Started:  make(chan struct{}, 0),
 		Finished: make(chan struct{}, 0),
@@ -45,20 +56,20 @@ func (qmd *Qmd) Job(cmd *exec.Cmd) (*Job, error) {
 	job.ID = fmt.Sprintf("%x", h.Sum(nil))
 
 	// Create working directory.
-	job.Cmd.Dir = qmd.Config.WorkDir + "/" + job.ID + "/tmp"
+	job.Cmd.Dir = qmd.Config.WorkDir + "/" + job.ID
 	err := os.MkdirAll(job.Cmd.Dir, 0777)
 	if err != nil {
 		return nil, err
 	}
 
-	job.StdoutFile = qmd.Config.WorkDir + "/" + job.ID + "/stdout"
-	job.StderrFile = qmd.Config.WorkDir + "/" + job.ID + "/stderr"
-	job.ExtraOutFile = qmd.Config.WorkDir + "/" + job.ID + "/QMD_OUT"
+	job.StdoutFile = job.Cmd.Dir + "/stdout"
+	job.StderrFile = job.Cmd.Dir + "/stderr"
+	job.QmdOutFile = job.Cmd.Dir + "/QMD_OUT"
 
 	cmd.Env = append(cmd.Env,
-		"QMD_TMP="+job.Cmd.Dir,
+		"QMD_TMP="+job.Cmd.Dir+"/tmp",
 		"QMD_STORE="+qmd.Config.StoreDir,
-		"QMD_OUT="+job.ExtraOutFile,
+		"QMD_OUT="+job.QmdOutFile,
 	)
 
 	// Save this job to the QMD.
@@ -73,9 +84,11 @@ func (qmd *Qmd) Job(cmd *exec.Cmd) (*Job, error) {
 func (job *Job) Start() error {
 	var err error
 
-	if job.Running {
-		return errors.New(fmt.Sprintf("job #%v already running", job.ID))
+	if job.State >= Running {
+		return errors.New(fmt.Sprintf("/jobs/%v already running", job.ID))
 	}
+
+	log.Printf("Starting /jobs/%v\n", job.ID)
 
 	job.Cmd.Stdout, err = os.Create(job.StdoutFile)
 	if err != nil {
@@ -87,12 +100,21 @@ func (job *Job) Start() error {
 		return err
 	}
 
+	qmdOut, err := os.Create(job.QmdOutFile)
+	if err != nil {
+		return err
+	}
+	qmdOut.Close()
+
+	// // FD 3
+	// job.ExtraFiles = append(job.ExtraFiles, qmdOut)
+
 	if err := job.Cmd.Start(); err != nil {
 		return err
 	}
 
 	job.StartTime = time.Now()
-	job.Running = true
+	job.State = Running
 	close(job.Started)
 	return nil
 }
@@ -113,8 +135,9 @@ func (job *Job) Wait() error {
 		}
 		job.Duration = time.Since(job.StartTime)
 		job.EndTime = job.StartTime.Add(job.Duration)
-		job.Running = false
+		job.State = Finished
 		close(job.Finished)
+		log.Printf("/jobs/%v finished\n", job.ID)
 	})
 
 	<-job.Finished
@@ -134,4 +157,17 @@ func (job *Job) Run() error {
 	}
 
 	return nil
+}
+
+func (s JobState) String() string {
+	switch s {
+	case Enqueued:
+		return "Enqueued"
+	case Running:
+		return "Running"
+	case Finished:
+		return "Finished"
+	default:
+		return "Initialized"
+	}
 }

@@ -14,6 +14,7 @@ import (
 	"github.com/zenazn/goji/web"
 	"github.com/zenazn/goji/web/middleware"
 
+	"github.com/pressly/qmd"
 	"github.com/pressly/qmd/api"
 )
 
@@ -21,12 +22,82 @@ func JobHandler() http.Handler {
 	s := web.New()
 	s.Use(middleware.SubRouter)
 
+	s.Get("/", ListJobs)
+	s.Get("/:id", Job)
+	s.Get("/:id/", Job)
 	s.Get("/:id/result", JobResult)
 	s.Get("/:id/stdout", JobStdout)
 	s.Get("/:id/stderr", JobStderr)
-	s.Get("/:id/qmd_out", JobQmdOut)
+	s.Get("/:id/QMD_OUT", JobQmdOut)
 
 	return s
+}
+
+func ListJobs(c web.C, w http.ResponseWriter, r *http.Request) {
+	var running, enqueued, finished, orphans []*qmd.Job
+	for _, job := range Qmd.Jobs {
+		switch job.State {
+		case qmd.Running:
+			running = append(running, job)
+		case qmd.Enqueued:
+			enqueued = append(enqueued, job)
+		case qmd.Finished:
+			finished = append(finished, job)
+		default:
+			orphans = append(orphans, job)
+		}
+	}
+
+	fmt.Fprintf(w, `<h1>Running (%v jobs)</h1>`, len(running))
+	for _, job := range running {
+		fmt.Fprintf(w, `<a href="/jobs/%v">Job %v</a> (`, job.ID, job.ID)
+		fmt.Fprintf(w, `<a href="/jobs/%v/result">result</a>, `, job.ID)
+		fmt.Fprintf(w, `<a href="/jobs/%v/stdout">stdout</a>, `, job.ID)
+		fmt.Fprintf(w, `<a href="/jobs/%v/stderr">stderr</a>, `, job.ID)
+		fmt.Fprintf(w, `<a href="/jobs/%v/QMD_OUT">QMD_OUT</a>)<br>`, job.ID)
+	}
+
+	fmt.Fprintf(w, `<h1>Enqueued(%v jobs)</h1>`, len(enqueued))
+	for _, job := range enqueued {
+		fmt.Fprintf(w, `<a href="/jobs/%v">Job %v</a> (`, job.ID, job.ID)
+		fmt.Fprintf(w, `<a href="/jobs/%v/result">result</a>, `, job.ID)
+		fmt.Fprintf(w, `<a href="/jobs/%v/stdout">stdout</a>, `, job.ID)
+		fmt.Fprintf(w, `<a href="/jobs/%v/stderr">stderr</a>, `, job.ID)
+		fmt.Fprintf(w, `<a href="/jobs/%v/QMD_OUT">QMD_OUT</a>)<br>`, job.ID)
+	}
+
+	fmt.Fprintf(w, `<h1>Finished (%v jobs)</h1>`, len(finished))
+	for _, job := range finished {
+		fmt.Fprintf(w, `<a href="/jobs/%v">Job %v</a> (`, job.ID, job.ID)
+		fmt.Fprintf(w, `<a href="/jobs/%v/result">result</a>, `, job.ID)
+		fmt.Fprintf(w, `<a href="/jobs/%v/stdout">stdout</a>, `, job.ID)
+		fmt.Fprintf(w, `<a href="/jobs/%v/stderr">stderr</a>, `, job.ID)
+		fmt.Fprintf(w, `<a href="/jobs/%v/QMD_OUT">QMD_OUT</a>)<br>`, job.ID)
+	}
+
+	fmt.Fprintf(w, `<h1>Orphans (%v jobs)</h1>`, len(orphans))
+	for _, job := range orphans {
+		fmt.Fprintf(w, `<a href="/jobs/%v">Job %v</a> (`, job.ID, job.ID)
+		fmt.Fprintf(w, `<a href="/jobs/%v/result">result</a>, `, job.ID)
+		fmt.Fprintf(w, `<a href="/jobs/%v/stdout">stdout</a>, `, job.ID)
+		fmt.Fprintf(w, `<a href="/jobs/%v/stderr">stderr</a>, `, job.ID)
+		fmt.Fprintf(w, `<a href="/jobs/%v/QMD_OUT">QMD_OUT</a>)<br>`, job.ID)
+	}
+
+}
+
+func Job(c web.C, w http.ResponseWriter, r *http.Request) {
+	job, err := Qmd.GetJob(c.URLParams["id"])
+	if err != nil {
+		http.Error(w, err.Error(), 404)
+		return
+	}
+
+	fmt.Fprintf(w, `<h1>Job %v [%s]</h1>`, job.ID, job.State)
+	fmt.Fprintf(w, `<a href="/jobs/%v/result">result</a><br>`, job.ID)
+	fmt.Fprintf(w, `<a href="/jobs/%v/stdout">stdout</a><br>`, job.ID)
+	fmt.Fprintf(w, `<a href="/jobs/%v/stderr">stderr</a><br>`, job.ID)
+	fmt.Fprintf(w, `<a href="/jobs/%v/QMD_OUT">QMD_OUT</a>`, job.ID)
 }
 
 func JobResult(c web.C, w http.ResponseWriter, r *http.Request) {
@@ -51,7 +122,7 @@ func JobResult(c web.C, w http.ResponseWriter, r *http.Request) {
 
 	stdout, _ := ioutil.ReadFile(job.StdoutFile)
 	//stderr, _ := ioutil.ReadFile(job.StderrFile)
-	qmdOut, _ := ioutil.ReadFile(job.ExtraOutFile)
+	qmdOut, _ := ioutil.ReadFile(job.QmdOutFile)
 
 	resp := api.ScriptsResponse{
 		ID:          job.ID,
@@ -61,7 +132,7 @@ func JobResult(c web.C, w http.ResponseWriter, r *http.Request) {
 		Status:      status,
 		StartTime:   job.StartTime,
 		EndTime:     job.EndTime,
-		Duration:    fmt.Sprintf("%d", job.Duration),
+		Duration:    fmt.Sprintf("%f", job.Duration.Seconds()),
 		Output:      string(qmdOut),
 		ExecLog:     string(stdout),
 	}
@@ -127,7 +198,7 @@ func JobQmdOut(c web.C, w http.ResponseWriter, r *http.Request) {
 
 	job.WaitForStart()
 
-	file, err := os.Open(job.ExtraOutFile)
+	file, err := os.Open(job.QmdOutFile)
 	if err != nil {
 		http.Error(w, err.Error(), 500)
 		return

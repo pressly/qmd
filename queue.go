@@ -59,6 +59,7 @@ func (qmd *Qmd) ListenQueue() {
 }
 
 func (qmd *Qmd) Enqueue(job *Job) {
+	job.State = Enqueued
 	qmd.Queue <- job
 }
 
