@@ -9,14 +9,15 @@ type ScriptsRequest struct {
 }
 
 type ScriptsResponse struct {
-	ID          string    `json:"id"`
-	Script      string    `json:"script"`
-	Args        []string  `json:"args"`
-	CallbackURL string    `json:"callback_url"`
-	Status      string    `json:"status"`
-	StartTime   time.Time `json:"start_time"`
-	EndTime     time.Time `json:"end_time"`
-	Duration    string    `json:"duration"`
-	Output      string    `json:"output"`
-	ExecLog     string    `json:"exec_log"`
+	ID          string            `json:"id"`
+	Script      string            `json:"script"`
+	Args        []string          `json:"args"`
+	Files       map[string]string `json:"files,omitempty"`
+	CallbackURL string            `json:"callback_url"`
+	Status      string            `json:"status"`
+	StartTime   time.Time         `json:"start_time"`
+	EndTime     time.Time         `json:"end_time"`
+	Duration    string            `json:"duration"`
+	Output      string            `json:"output"`
+	ExecLog     string            `json:"exec_log"`
 }
