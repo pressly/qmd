@@ -33,7 +33,7 @@ func JobHandler() http.Handler {
 }
 
 func ListJobs(c web.C, w http.ResponseWriter, r *http.Request) {
-	var running, enqueued, finished, interrupted, initialized []string
+	var running, enqueued, finished, interrupted, failed, initialized []string
 
 	Qmd.MuJobs.Lock()
 	defer Qmd.MuJobs.Unlock()
@@ -47,15 +47,19 @@ func ListJobs(c web.C, w http.ResponseWriter, r *http.Request) {
 			enqueued = append(enqueued, job.ID)
 		case qmd.Finished:
 			finished = append(finished, job.ID)
+		case qmd.Failed:
+			failed = append(failed, job.ID)
 		case qmd.Interrupted:
 			interrupted = append(interrupted, job.ID)
-
+		default:
+			panic("unreachable")
 		}
 	}
 	sort.Strings(running)
 	sort.Strings(enqueued)
 	sort.Strings(finished)
 	sort.Strings(interrupted)
+	sort.Strings(failed)
 	sort.Strings(initialized)
 
 	fmt.Fprintf(w, `<table><tr><th>Running</th><th>Enqueued</th><th>Finished</th><th>Interrupted</th><th>Orhans</th></tr>`)
@@ -93,6 +97,16 @@ func ListJobs(c web.C, w http.ResponseWriter, r *http.Request) {
 
 	fmt.Fprintf(w, `<h1>Interrupted (%v jobs)</h1>`, len(interrupted))
 	for _, id := range interrupted {
+		job := Qmd.Jobs[id]
+		fmt.Fprintf(w, `<a href="/jobs/%v">Job %v</a> (`, job.ID, job.ID)
+		fmt.Fprintf(w, `<a href="/jobs/%v/result">result</a>, `, job.ID)
+		fmt.Fprintf(w, `<a href="/jobs/%v/stdout">stdout</a>, `, job.ID)
+		fmt.Fprintf(w, `<a href="/jobs/%v/stderr">stderr</a>, `, job.ID)
+		fmt.Fprintf(w, `<a href="/jobs/%v/QMD_OUT">QMD_OUT</a>)<br>`, job.ID)
+	}
+
+	fmt.Fprintf(w, `<h1>Failed to start (%v jobs)</h1>`, len(failed))
+	for _, id := range failed {
 		job := Qmd.Jobs[id]
 		fmt.Fprintf(w, `<a href="/jobs/%v">Job %v</a> (`, job.ID, job.ID)
 		fmt.Fprintf(w, `<a href="/jobs/%v/result">result</a>, `, job.ID)
@@ -149,15 +163,17 @@ func JobResult(c web.C, w http.ResponseWriter, r *http.Request) {
 	}
 
 	resp := api.ScriptsResponse{
-		ID:          job.ID,
-		Script:      job.Args[0],
-		Args:        job.Args[1:],
+		ID: job.ID,
+		//TODO: We probably don't need those in response:
+		// Script:      job.Args[0],
+		// Args:        job.Args[1:],
+		// Files:
 		CallbackURL: job.CallbackURL,
 		Status:      status,
 		StartTime:   job.StartTime,
 		EndTime:     job.EndTime,
 		Duration:    fmt.Sprintf("%f", job.Duration.Seconds()),
-		Output:      string(qmdOut),
+		QmdOut:      string(qmdOut),
 		ExecLog:     string(stdout),
 	}
 

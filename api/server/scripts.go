@@ -30,8 +30,6 @@ func CreateSyncJob(c web.C, w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//log.Printf("\n\nreq: %#v\n\n", req)
-
 	// Get script path.
 	script, err := Qmd.GetScript(c.URLParams["filename"])
 	if err != nil {
@@ -46,6 +44,8 @@ func CreateSyncJob(c web.C, w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), 500)
 		return
 	}
+
+	job.ExtraWorkDirFiles = req.Files
 
 	// Enqueue job.
 	Qmd.Enqueue(job)

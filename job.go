@@ -4,9 +4,11 @@ import (
 	"crypto/sha1"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"os"
 	"os/exec"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -26,9 +28,10 @@ type Job struct {
 	StatusCode  int
 	CallbackURL string
 
-	StdoutFile string
-	StderrFile string
-	QmdOutFile string
+	StdoutFile        string
+	StderrFile        string
+	QmdOutFile        string
+	ExtraWorkDirFiles map[string]string
 
 	// Started channel blocks until the job is started.
 	Started chan struct{}
@@ -48,6 +51,7 @@ const (
 	Running
 	Finished
 	Interrupted
+	Failed
 )
 
 func (qmd *Qmd) Job(cmd *exec.Cmd) (*Job, error) {
@@ -63,9 +67,9 @@ func (qmd *Qmd) Job(cmd *exec.Cmd) (*Job, error) {
 	h.Write(uuid.NewRandom())
 	job.ID = fmt.Sprintf("%x", h.Sum(nil))
 
-	// Create working directory.
+	// Create working directory with /tmp subdirectory.
 	job.Cmd.Dir = qmd.Config.WorkDir + "/" + job.ID
-	err := os.MkdirAll(job.Cmd.Dir, 0777)
+	err := os.MkdirAll(job.Cmd.Dir+"/tmp", 0777)
 	if err != nil {
 		return nil, err
 	}
@@ -117,17 +121,35 @@ func (job *Job) Start() error {
 	// // FD 3
 	// job.ExtraFiles = append(job.ExtraFiles, qmdOut)
 
+	for file, data := range job.ExtraWorkDirFiles {
+		// Must be a simple filename without slashes.
+		if strings.Index(file, "/") != -1 {
+			job.Err = errors.New("extra file contains slashes")
+			goto failedToStart
+		}
+		err = ioutil.WriteFile(job.Cmd.Dir+"/tmp/"+file, []byte(data), 0644)
+		if err != nil {
+			job.Err = err
+			goto failedToStart
+		}
+	}
+
 	if err := job.Cmd.Start(); err != nil {
-		close(job.Started)
-		close(job.Finished)
 		job.Err = err
-		return err
+		goto failedToStart
 	}
 
 	job.StartTime = time.Now()
 	job.State = Running
 	close(job.Started)
 	return nil
+
+failedToStart:
+	job.State = Failed
+	close(job.Started)
+	close(job.Finished)
+	log.Printf("Failed to start /jobs/%v: %v", job.ID, job.Err)
+	return job.Err
 }
 
 // Wait waits for job to finish.
@@ -200,6 +222,8 @@ func (s JobState) String() string {
 		return "Finished"
 	case Interrupted:
 		return "Interrupted"
+	case Failed:
+		return "Failed to start"
 	}
 	panic("unreachable")
 }
