@@ -6,7 +6,7 @@ import (
 	"time"
 )
 
-func StartWorker(id int, workerPool chan chan *Job /*, quitWorkerPool chan chan struct{}*/) {
+func (qmd *Qmd) startWorker(id int, workerPool chan chan *Job /*, quitWorkerPool chan chan struct{}*/) {
 	// quit := make(chan struct{})
 	// quitWorkerPool <- quit
 
@@ -30,7 +30,7 @@ func StartWorker(id int, workerPool chan chan *Job /*, quitWorkerPool chan chan 
 			case <-job.Finished:
 
 			// Or kill it, if it doesn't finish in a specified time.
-			case <-time.After(500 * time.Millisecond):
+			case <-time.After(time.Duration(qmd.Config.MaxExecTime) * time.Second):
 				if job.Kill() == nil {
 					<-job.Finished
 				}
@@ -49,7 +49,7 @@ func (qmd *Qmd) ListenQueue() {
 
 	log.Printf("Starting %v QMD workers\n", qmd.Config.MaxJobs)
 	for i := 0; i < qmd.Config.MaxJobs; i++ {
-		go StartWorker(i, workerPool /*, quitWorkerPool*/)
+		go qmd.startWorker(i, workerPool /*, quitWorkerPool*/)
 	}
 
 	for {
