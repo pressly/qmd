@@ -33,7 +33,7 @@ func JobHandler() http.Handler {
 }
 
 func ListJobs(c web.C, w http.ResponseWriter, r *http.Request) {
-	var running, enqueued, finished, interrupted, failed, initialized []string
+	var running, enqueued, finished, killed, killedBeforeStart, failedToStart, initialized []string
 
 	Qmd.MuJobs.Lock()
 	defer Qmd.MuJobs.Unlock()
@@ -47,10 +47,12 @@ func ListJobs(c web.C, w http.ResponseWriter, r *http.Request) {
 			enqueued = append(enqueued, job.ID)
 		case qmd.Finished:
 			finished = append(finished, job.ID)
-		case qmd.Failed:
-			failed = append(failed, job.ID)
-		case qmd.Interrupted:
-			interrupted = append(interrupted, job.ID)
+		case qmd.Killed:
+			killed = append(killed, job.ID)
+		case qmd.KilledBeforeStart:
+			killedBeforeStart = append(killedBeforeStart, job.ID)
+		case qmd.FailedToStart:
+			failedToStart = append(failedToStart, job.ID)
 		default:
 			panic("unreachable")
 		}
@@ -58,12 +60,13 @@ func ListJobs(c web.C, w http.ResponseWriter, r *http.Request) {
 	sort.Strings(running)
 	sort.Strings(enqueued)
 	sort.Strings(finished)
-	sort.Strings(interrupted)
-	sort.Strings(failed)
+	sort.Strings(killed)
+	sort.Strings(failedToStart)
+	sort.Strings(killedBeforeStart)
 	sort.Strings(initialized)
 
-	fmt.Fprintf(w, `<table><tr><th>Running</th><th>Enqueued</th><th>Finished</th><th>Interrupted</th><th>Orhans</th></tr>`)
-	fmt.Fprintf(w, `<tr><td>%d</td><td>%d</td><td>%d</td><td>%d</td><td>%d</td></tr></table>`, len(running), len(enqueued), len(finished), len(interrupted), len(initialized))
+	fmt.Fprintf(w, `<table border="1"><tr><th>Running</th><th>Enqueued</th><th>Finished</th><th>Killed</th><th>Killed before start</th><th>Failed to start</th><th>Orhans</th></tr>`)
+	fmt.Fprintf(w, `<tr><td>%d</td><td>%d</td><td>%d</td><td>%d</td><td>%d</td><td>%d</td><td>%d</td></tr></table>`, len(running), len(enqueued), len(finished), len(killed), len(killedBeforeStart), len(failedToStart), len(initialized))
 
 	fmt.Fprintf(w, `<h1>Running (%v jobs)</h1>`, len(running))
 	for _, id := range running {
@@ -95,8 +98,8 @@ func ListJobs(c web.C, w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, `<a href="/jobs/%v/QMD_OUT">QMD_OUT</a>)<br>`, job.ID)
 	}
 
-	fmt.Fprintf(w, `<h1>Interrupted (%v jobs)</h1>`, len(interrupted))
-	for _, id := range interrupted {
+	fmt.Fprintf(w, `<h1>Killed (%v jobs)</h1>`, len(killed))
+	for _, id := range killed {
 		job := Qmd.Jobs[id]
 		fmt.Fprintf(w, `<a href="/jobs/%v">Job %v</a> (`, job.ID, job.ID)
 		fmt.Fprintf(w, `<a href="/jobs/%v/result">result</a>, `, job.ID)
@@ -105,8 +108,18 @@ func ListJobs(c web.C, w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, `<a href="/jobs/%v/QMD_OUT">QMD_OUT</a>)<br>`, job.ID)
 	}
 
-	fmt.Fprintf(w, `<h1>Failed to start (%v jobs)</h1>`, len(failed))
-	for _, id := range failed {
+	fmt.Fprintf(w, `<h1>Killed before start (%v jobs)</h1>`, len(killedBeforeStart))
+	for _, id := range killedBeforeStart {
+		job := Qmd.Jobs[id]
+		fmt.Fprintf(w, `<a href="/jobs/%v">Job %v</a> (`, job.ID, job.ID)
+		fmt.Fprintf(w, `<a href="/jobs/%v/result">result</a>, `, job.ID)
+		fmt.Fprintf(w, `<a href="/jobs/%v/stdout">stdout</a>, `, job.ID)
+		fmt.Fprintf(w, `<a href="/jobs/%v/stderr">stderr</a>, `, job.ID)
+		fmt.Fprintf(w, `<a href="/jobs/%v/QMD_OUT">QMD_OUT</a>)<br>`, job.ID)
+	}
+
+	fmt.Fprintf(w, `<h1>Failed to start (%v jobs)</h1>`, len(failedToStart))
+	for _, id := range failedToStart {
 		job := Qmd.Jobs[id]
 		fmt.Fprintf(w, `<a href="/jobs/%v">Job %v</a> (`, job.ID, job.ID)
 		fmt.Fprintf(w, `<a href="/jobs/%v/result">result</a>, `, job.ID)

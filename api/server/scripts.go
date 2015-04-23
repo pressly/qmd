@@ -50,6 +50,19 @@ func CreateSyncJob(c web.C, w http.ResponseWriter, r *http.Request) {
 	// Enqueue job.
 	Qmd.Enqueue(job)
 
+	// Kill the job, if client closes the connection before
+	// it receives the data.
+	done := make(chan struct{})
+	defer close(done)
+	connClosed := w.(http.CloseNotifier).CloseNotify()
+	go func() {
+		select {
+		case <-connClosed:
+			job.Kill()
+		case <-done:
+		}
+	}()
+
 	// Redirect to the actual /job/:id/result handler.
 	// Post/Redirect/Get pattern would be too expensive.
 	c.URLParams["id"] = job.ID

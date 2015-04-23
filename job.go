@@ -50,8 +50,9 @@ const (
 	Enqueued
 	Running
 	Finished
-	Interrupted
-	Failed
+	Killed
+	KilledBeforeStart
+	FailedToStart
 )
 
 func (qmd *Qmd) Job(cmd *exec.Cmd) (*Job, error) {
@@ -145,7 +146,8 @@ func (job *Job) Start() error {
 	return nil
 
 failedToStart:
-	job.State = Failed
+	job.StatusCode = -1
+	job.State = FailedToStart
 	close(job.Started)
 	close(job.Finished)
 	log.Printf("Failed to start /jobs/%v: %v", job.ID, job.Err)
@@ -167,7 +169,7 @@ func (job *Job) Wait() error {
 		err := job.Cmd.Wait()
 		job.Duration = time.Since(job.StartTime)
 		job.EndTime = job.StartTime.Add(job.Duration)
-		if job.State != Interrupted {
+		if job.State != Killed {
 			job.State = Finished
 		}
 
@@ -206,8 +208,16 @@ func (job *Job) Run() error {
 
 // TODO: Enable clean-up by sending Signal(os.Interrupt) first?
 func (job *Job) Kill() error {
-	job.State = Interrupted
-	return job.Cmd.Process.Kill()
+	if job.State == Running {
+		job.State = Killed
+		return job.Cmd.Process.Kill()
+	}
+	job.State = KilledBeforeStart
+	close(job.Started)
+	close(job.Finished)
+	job.StatusCode = -2
+	job.Err = errors.New("killed")
+	return job.Err
 }
 
 func (s JobState) String() string {
@@ -220,9 +230,11 @@ func (s JobState) String() string {
 		return "Running"
 	case Finished:
 		return "Finished"
-	case Interrupted:
-		return "Interrupted"
-	case Failed:
+	case Killed:
+		return "Killed"
+	case KilledBeforeStart:
+		return "Killed before start"
+	case FailedToStart:
 		return "Failed to start"
 	}
 	panic("unreachable")
