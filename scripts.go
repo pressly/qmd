@@ -22,15 +22,21 @@ func (s *Scripts) Watch(dir string) {
 	for {
 		info, err := os.Stat(dir)
 		if err != nil {
-			log.Printf("script_dir=\"" + dir + "\": " + err.Error())
+			log.Printf("script_dir=\"" + dir + "\": no such directory")
+			time.Sleep(1 * time.Second)
+			continue
 		}
 		if !info.IsDir() {
 			log.Printf("script_dir=\"" + dir + "\": not a directory")
+			time.Sleep(1 * time.Second)
+			continue
 		}
 
 		err = s.Walk(dir)
 		if err != nil {
 			log.Print(err)
+			time.Sleep(1 * time.Second)
+			continue
 		}
 
 		time.Sleep(10 * time.Second)
@@ -39,8 +45,6 @@ func (s *Scripts) Watch(dir string) {
 
 // Walk walks the ScriptDir and finds all the shell scripts.
 func (s *Scripts) Walk(dir string) error {
-	//log.Println("Scripts: Walking script_dir..")
-
 	files := map[string]string{}
 	if err := filepath.Walk(dir, func(file string, info os.FileInfo, err error) error {
 		if !info.IsDir() {
@@ -50,7 +54,6 @@ func (s *Scripts) Walk(dir string) error {
 					return err
 				}
 				files[rel] = file
-				//log.Println("Scripts: Found:", rel)
 			}
 		}
 		return nil
