@@ -74,7 +74,7 @@ func (qmd *Qmd) Job(cmd *exec.Cmd) (*Job, error) {
 	job.StderrFile = job.Cmd.Dir + "/stderr"
 	job.QmdOutFile = job.Cmd.Dir + "/QMD_OUT"
 
-	cmd.Env = append(cmd.Env,
+	cmd.Env = append(os.Environ(),
 		"QMD_TMP="+job.Cmd.Dir+"/tmp",
 		"QMD_STORE="+qmd.Config.StoreDir,
 		"QMD_OUT="+job.QmdOutFile,
