@@ -1,6 +1,7 @@
 package qmd
 
 import (
+	"log"
 	"sync"
 
 	"github.com/pressly/qmd/config"
@@ -28,6 +29,7 @@ func New(conf *config.Config) *Qmd {
 }
 
 func (qmd *Qmd) Close() {
+	log.Printf("qmd.Close()")
 	qmd.Closing <- struct{}{}
 }
 

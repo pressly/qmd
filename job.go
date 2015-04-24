@@ -50,9 +50,9 @@ const (
 	Enqueued
 	Running
 	Finished
-	Killed
-	KilledBeforeStart
-	FailedToStart
+	Terminated
+	Invalidated
+	Failed
 )
 
 func (qmd *Qmd) Job(cmd *exec.Cmd) (*Job, error) {
@@ -135,6 +135,11 @@ func (job *Job) Start() error {
 		}
 	}
 
+	job.Cmd.SysProcAttr = &syscall.SysProcAttr{
+		Setpgid: true,
+		//Chroot: ,
+	}
+
 	if err := job.Cmd.Start(); err != nil {
 		job.Err = err
 		goto failedToStart
@@ -147,7 +152,7 @@ func (job *Job) Start() error {
 
 failedToStart:
 	job.StatusCode = -1
-	job.State = FailedToStart
+	job.State = Failed
 	close(job.Started)
 	close(job.Finished)
 	log.Printf("Failed to start /jobs/%v: %v", job.ID, job.Err)
@@ -166,10 +171,12 @@ func (job *Job) Wait() error {
 
 	// Prevent running cmd.Wait() multiple times.
 	job.WaitOnce.Do(func() {
+		log.Printf("gonna wait")
 		err := job.Cmd.Wait()
+		log.Printf("wait done")
 		job.Duration = time.Since(job.StartTime)
 		job.EndTime = job.StartTime.Add(job.Duration)
-		if job.State != Killed {
+		if job.State != Terminated {
 			job.State = Finished
 		}
 
@@ -181,6 +188,11 @@ func (job *Job) Wait() error {
 				}
 			}
 		}
+
+		log.Printf("wait done... but make sure all subprocesses are killed")
+		// Make sure to kill all the whole process group,
+		// so there are no subprocesses left.
+		job.Kill()
 
 		close(job.Finished)
 		log.Printf("/jobs/%v finished\n", job.ID)
@@ -206,17 +218,53 @@ func (job *Job) Run() error {
 	return nil
 }
 
-// TODO: Enable clean-up by sending Signal(os.Interrupt) first?
 func (job *Job) Kill() error {
-	if job.State == Running {
-		job.State = Killed
-		return job.Cmd.Process.Kill()
+	switch job.State {
+	case Running:
+		job.State = Terminated
+		pgid, err := syscall.Getpgid(job.Cmd.Process.Pid)
+		if err == nil {
+			log.Printf("gonna killall")
+			// Kill the whole process group.
+			syscall.Kill(-pgid, 15)
+			log.Printf("killall done")
+		} else {
+			log.Printf("fall-back kill")
+			// Fall-back on error. Kill the main process only.
+			job.Cmd.Process.Kill()
+			log.Printf("fall-back kill done")
+		}
+
+	case Finished:
+		// Make sure to kill all the whole process group,
+		// so there are no subprocesses left.
+		pgid, err := syscall.Getpgid(job.Cmd.Process.Pid)
+		if err != nil {
+			break
+		}
+		log.Printf("gonna killall")
+		// Kill the whole process group.
+		syscall.Kill(-pgid, 15)
+		log.Printf("killall done")
+
+	case Initialized, Enqueued:
+		job.State = Invalidated
+		job.WaitOnce.Do(func() {
+			close(job.Finished)
+		})
+		close(job.Started)
+		job.StatusCode = -2
+		job.Err = errors.New("invalidated")
+		log.Printf("Invalidating /jobs/%v\n", job.ID)
+
+	case Terminated:
+		// NOP. The job might have been killed already
+		// or it failed to start.
+		log.Printf("Kill(): Job %v already Terminated, PID %v state: %v", job.ID, job.Cmd.Process.Pid, job.Cmd.ProcessState)
+	default:
+		// NOP.
 	}
-	job.State = KilledBeforeStart
-	close(job.Started)
-	close(job.Finished)
-	job.StatusCode = -2
-	job.Err = errors.New("killed")
+
 	return job.Err
 }
 
@@ -230,11 +278,11 @@ func (s JobState) String() string {
 		return "Running"
 	case Finished:
 		return "Finished"
-	case Killed:
-		return "Killed"
-	case KilledBeforeStart:
-		return "Killed before start"
-	case FailedToStart:
+	case Terminated:
+		return "Terminated"
+	case Invalidated:
+		return "Terminated before start"
+	case Failed:
 		return "Failed to start"
 	}
 	panic("unreachable")

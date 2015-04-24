@@ -20,20 +20,26 @@ func (qmd *Qmd) startWorker(id int, workerPool chan chan *Job /*, quitWorkerPool
 		select {
 		// Wait for a job.
 		case job := <-worker:
-
+			log.Printf("Worker[%v] going to run job..\n", id)
 			// Run a job.
 			go job.Run()
+			log.Printf("Worker[%v] Run()..\n", id)
 			<-job.Started
+
+			log.Printf("Worker[%v] <-Started..\n", id)
 
 			select {
 			// Wait for the job to finish.
 			case <-job.Finished:
+				log.Printf("Worker[%v] <-Finished..\n", id)
 
 			// Or kill it, if it doesn't finish in a specified time.
 			case <-time.After(time.Duration(qmd.Config.MaxExecTime) * time.Second):
-				if job.Kill() == nil {
-					<-job.Finished
-				}
+				log.Printf("Worker[%v] <-Timeout... Kill()\n", id)
+				job.Kill()
+				log.Printf("Worker[%v] Wait()\n", id)
+				job.Wait()
+				log.Printf("Worker[%v] done..\n", id)
 
 				// case <-quit:
 				// 	log.Printf("worker[%d]: Stopping\n", id)
@@ -56,6 +62,7 @@ func (qmd *Qmd) ListenQueue() {
 		select {
 		// Wait for some worker to become available.
 		case worker := <-workerPool:
+			log.Printf("Worker ready for new job..\n")
 			// Send it a job.
 			job := <-qmd.Queue
 			worker <- job
@@ -71,6 +78,7 @@ func (qmd *Qmd) ListenQueue() {
 }
 
 func (qmd *Qmd) Enqueue(job *Job) {
+	log.Printf("Enqueue /jobs/%v", job.ID)
 	job.State = Enqueued
 	qmd.Queue <- job
 }
