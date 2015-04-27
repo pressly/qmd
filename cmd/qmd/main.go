@@ -8,8 +8,8 @@ import (
 	"syscall"
 
 	"github.com/pressly/qmd"
-	"github.com/pressly/qmd/api/server"
 	"github.com/pressly/qmd/config"
+	"github.com/pressly/qmd/server"
 	"github.com/zenazn/goji/graceful"
 )
 
