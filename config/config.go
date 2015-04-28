@@ -12,14 +12,19 @@ var ErrNoConfFile = errors.New("no configuration file specified")
 
 // Config holds configuration read from config file.
 type Config struct {
-	Bind        string `toml:"bind"`
-	MaxProcs    int    `toml:"max_procs"`
-	DebugMode   bool   `toml:"debug_mode"`
-	ScriptDir   string `toml:"script_dir"`
-	WorkDir     string `toml:"work_dir"`
-	StoreDir    string `toml:"store_dir"`
-	MaxJobs     int    `toml:"max_jobs"`
-	MaxExecTime int    `toml:"max_exec_time"`
+	Bind        string   `toml:"bind"`
+	MaxProcs    int      `toml:"max_procs"`
+	DebugMode   bool     `toml:"debug_mode"`
+	ScriptDir   string   `toml:"script_dir"`
+	WorkDir     string   `toml:"work_dir"`
+	StoreDir    string   `toml:"store_dir"`
+	MaxJobs     int      `toml:"max_jobs"`
+	MaxExecTime int      `toml:"max_exec_time"`
+	DB          DBConfig `toml:"db"`
+}
+
+type DBConfig struct {
+	RedisURI string `toml:"redis_uri"`
 }
 
 // New reads configuration from a specified file and creates new Config object.

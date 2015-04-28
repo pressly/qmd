@@ -17,31 +17,33 @@ import (
 )
 
 type Job struct {
-	*exec.Cmd
+	*exec.Cmd `json:"cmd"`
 
-	ID          string
-	State       JobState
-	StartTime   time.Time
-	EndTime     time.Time
-	Duration    time.Duration
-	StatusCode  int
-	CallbackURL string
-	Err         error
+	ID          string        `json:"id"`
+	State       JobState      `json:"state"`
+	StartTime   time.Time     `json:"start_time,omitempty"`
+	EndTime     time.Time     `json:"end_time,omitempty"`
+	Duration    time.Duration `json:"duration,omitempty"`
+	StatusCode  int           `json:"status_code,omitempty"`
+	CallbackURL string        `json:"callback_url"`
+	Err         error         `json:"err,omitempty"`
+	Priority    Priority      `json:"priority"`
 
-	StdoutFile        string
-	StderrFile        string
-	QmdOutFile        string
-	ExtraWorkDirFiles map[string]string
+	StdoutFile        string            `json:"-"`
+	StderrFile        string            `json:"-"`
+	QmdOutFile        string            `json:"-"`
+	StoreDir          string            `json:"storedir"`
+	ExtraWorkDirFiles map[string]string `json:"extraworkdirfiles"`
 
 	// Started channel block until the job is started.
-	Started chan struct{}
+	Started chan struct{} `json:"-"`
 	// Finished channel block until the job is finished/killed/invalidated.
-	Finished chan struct{}
+	Finished chan struct{} `json:"-"`
 
 	// WaitOnce guards the Wait() logic, so it can be called multiple times.
-	WaitOnce sync.Once
+	WaitOnce sync.Once `json:"-"`
 	// StartOnce guards the Start() logic, so it can be called multiple times.
-	StartOnce sync.Once
+	StartOnce sync.Once `json:"-"`
 }
 
 type JobState int
@@ -56,44 +58,52 @@ const (
 	Failed
 )
 
-func (qmd *Qmd) Job(cmd *exec.Cmd) (*Job, error) {
-	job := &Job{
-		State:    Initialized,
-		Cmd:      cmd,
-		Started:  make(chan struct{}),
-		Finished: make(chan struct{}),
-	}
+type Priority int
 
+const (
+	PriorityLow Priority = iota
+	PriorityHigh
+	PriorityUrgent
+)
+
+func (s Priority) String() string {
+	switch s {
+	case PriorityLow:
+		return "low"
+	case PriorityHigh:
+		return "high"
+	case PriorityUrgent:
+		return "urgent"
+	}
+	panic("unreachable")
+}
+
+func (qmd *Qmd) Job(cmd *exec.Cmd) (*Job, error) {
 	// Assign an unique ID to the job.
 	h := sha1.New()
 	h.Write(uuid.NewRandom())
-	job.ID = fmt.Sprintf("%x", h.Sum(nil))
+	id := fmt.Sprintf("%x", h.Sum(nil))
 
-	// Create working directory with /tmp subdirectory.
-	job.Cmd.Dir = qmd.Config.WorkDir + "/" + job.ID
-	err := os.MkdirAll(job.Cmd.Dir+"/tmp", 0777)
-	if err != nil {
-		return nil, err
+	job := &Job{
+		Cmd:      cmd,
+		ID:       id,
+		State:    Initialized,
+		Started:  make(chan struct{}),
+		Finished: make(chan struct{}),
+		StoreDir: qmd.Config.StoreDir,
 	}
-
-	job.StdoutFile = job.Cmd.Dir + "/stdout"
-	job.StderrFile = job.Cmd.Dir + "/stderr"
-	job.QmdOutFile = job.Cmd.Dir + "/QMD_OUT"
-
-	cmd.Env = append(os.Environ(),
-		"QMD_TMP="+job.Cmd.Dir+"/tmp",
-		"QMD_STORE="+qmd.Config.StoreDir,
-		"QMD_OUT="+job.QmdOutFile,
-	)
-
-	// Save this job to the QMD.
-	//TODO: Check for possible ID colissions. Generate new ID & retry.
-	qmd.MuJobs.Lock()
-	defer qmd.MuJobs.Unlock()
-	qmd.Jobs[job.ID] = job
+	job.Cmd.Dir = qmd.Config.WorkDir + "/" + job.ID
 
 	return job, nil
 }
+
+// func (job *Job) UnmarshalJSON(data []byte) error {
+// 	log.Fatalf("unmarshall")
+// 	// if err = json.Unmarshal(data, &n); err == nil {
+// 	//     a.ID = n
+// 	// }
+// 	return nil
+// }
 
 func (job *Job) Start() error {
 	job.StartOnce.Do(job.startOnce)
@@ -107,7 +117,22 @@ func (job *Job) Start() error {
 func (job *Job) startOnce() {
 	log.Printf("Starting /jobs/%v\n", job.ID)
 
-	var err error
+	job.StdoutFile = job.Cmd.Dir + "/stdout"
+	job.StderrFile = job.Cmd.Dir + "/stderr"
+	job.QmdOutFile = job.Cmd.Dir + "/QMD_OUT"
+
+	job.Cmd.Env = append(os.Environ(),
+		"QMD_TMP="+job.Cmd.Dir+"/tmp",
+		"QMD_STORE="+job.StoreDir,
+		"QMD_OUT="+job.QmdOutFile,
+	)
+
+	// Create working directory with /tmp subdirectory.
+	err := os.MkdirAll(job.Cmd.Dir+"/tmp", 0777)
+	if err != nil {
+		job.Err = err
+	}
+
 	job.Cmd.Stdout, err = os.Create(job.StdoutFile)
 	if err != nil {
 		job.Err = err

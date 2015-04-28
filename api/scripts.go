@@ -22,3 +22,9 @@ type ScriptsResponse struct {
 	QmdOut      string    `json:"output"`
 	ExecLog     string    `json:"exec_log"`
 }
+
+type JobScriptsRequest struct {
+	ScriptsRequest `json:",inline"`
+	ID             string `json:"id"`
+	File           string `json:"file"`
+}

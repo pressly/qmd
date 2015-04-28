@@ -36,7 +36,10 @@ func main() {
 	runtime.GOMAXPROCS(conf.MaxProcs)
 
 	// Run QMD.
-	app := qmd.New(conf)
+	app, err := qmd.New(conf)
+	if err != nil {
+		log.Fatal(err)
+	}
 	go app.WatchScripts()
 	go app.ListenQueue()
 
