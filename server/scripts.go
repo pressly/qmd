@@ -2,6 +2,8 @@ package server
 
 import (
 	"encoding/json"
+	"fmt"
+	"io/ioutil"
 	"net/http"
 	"os/exec"
 
@@ -18,9 +20,6 @@ func ScriptsHandler() http.Handler {
 	return s
 }
 
-//TODO: This is Sync operation, so if the client closes the request,
-//      before getting the response, we should kill the job.
-//      Use w.(http.CloseNotifier).
 func CreateSyncJob(c web.C, w http.ResponseWriter, r *http.Request) {
 	// Decode request data.
 	var req *api.ScriptsRequest
@@ -63,8 +62,40 @@ func CreateSyncJob(c web.C, w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 
-	// Redirect to the actual /job/:id/result handler.
-	// Post/Redirect/Get pattern would be too expensive.
-	c.URLParams["id"] = job.ID
-	JobResult(c, w, r)
+	// Wait for the job to finish.
+	_ = job.Wait()
+
+	stdout, _ := ioutil.ReadFile(job.StdoutFile)
+	//stderr, _ := ioutil.ReadFile(job.StderrFile)
+	qmdOut, _ := ioutil.ReadFile(job.QmdOutFile)
+
+	var status string
+	if job.StatusCode == 0 {
+		// "OK" for backward compatibility.
+		status = "OK"
+	} else {
+		status = fmt.Sprintf("%v", job.StatusCode)
+	}
+
+	resp := api.ScriptsResponse{
+		ID: job.ID,
+		//TODO: We probably don't need those in response:
+		// Script:      job.Args[0],
+		// Args:        job.Args[1:],
+		// Files:
+		CallbackURL: job.CallbackURL,
+		Status:      status,
+		StartTime:   job.StartTime,
+		EndTime:     job.EndTime,
+		Duration:    fmt.Sprintf("%f", job.Duration.Seconds()),
+		QmdOut:      string(qmdOut),
+		ExecLog:     string(stdout),
+	}
+
+	enc := json.NewEncoder(w)
+	err = enc.Encode(resp)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
 }

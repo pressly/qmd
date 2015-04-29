@@ -42,6 +42,7 @@ func New(conf *config.Config) (*Qmd, error) {
 func (qmd *Qmd) Close() {
 	log.Printf("qmd.Close()")
 	qmd.Closing <- struct{}{}
+	log.Fatalf("exit")
 }
 
 func (qmd *Qmd) GetScript(file string) (string, error) {
