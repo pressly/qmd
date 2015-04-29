@@ -14,6 +14,8 @@ type Qmd struct {
 	Scripts Scripts
 	//Queue   chan *Job
 
+	Workers chan Worker
+
 	MuJobs sync.Mutex
 	Jobs   map[string]*Job
 

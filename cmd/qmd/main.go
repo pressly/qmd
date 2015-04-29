@@ -40,6 +40,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	app.StartWorkers()
 	go app.WatchScripts()
 	go app.ListenQueue()
 
