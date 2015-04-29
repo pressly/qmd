@@ -36,15 +36,17 @@ func (qmd *Qmd) ListenQueue() {
 func (qmd *Qmd) Enqueue(job *Job) error {
 	log.Printf("Enqueue /jobs/%v", job.ID)
 	job.State = Enqueued
-	//qmd.Queue <- job
-	return qmd.DB.EnqueueJob(job)
+	qmd.Queue <- job
+	return nil
+	//return qmd.DB.EnqueueJob(job)
 }
 
 func (qmd *Qmd) Dequeue() (*Job, error) {
-	job, err := qmd.DB.DequeueJob()
-	if err != nil {
-		return nil, err
-	}
+	// job, err := qmd.DB.DequeueJob()
+	// if err != nil {
+	// 	return nil, err
+	// }
+	job := <-qmd.Queue
 	job.Cmd.Dir = qmd.Config.WorkDir + "/" + job.ID
 	job.StoreDir = qmd.Config.StoreDir
 

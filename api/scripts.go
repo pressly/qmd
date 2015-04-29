@@ -10,17 +10,19 @@ type ScriptsRequest struct {
 
 type ScriptsResponse struct {
 	ID string `json:"id"`
-	//TODO: We probably don't need those in response:
-	// Script      string            `json:"script"`
-	// Args        []string          `json:"args,omitempty"`
-	// Files       map[string]string `json:"files,omitempty"`
+
+	//TODO: These are only for backward-compatibility, we don't need them.
+	Script string            `json:"script"`
+	Args   []string          `json:"args,omitempty"`
+	Files  map[string]string `json:"files,omitempty"`
+
 	CallbackURL string    `json:"callback_url,omitempty"`
 	Status      string    `json:"status"`
-	StartTime   time.Time `json:"start_time"`
-	EndTime     time.Time `json:"end_time"`
-	Duration    string    `json:"duration"`
-	QmdOut      string    `json:"output"`
-	ExecLog     string    `json:"exec_log"`
+	StartTime   time.Time `json:"start_time,omitempty"`
+	EndTime     time.Time `json:"end_time,omitempty"`
+	Duration    string    `json:"duration,omitempty"`
+	QmdOut      string    `json:"output,omitempty"`
+	ExecLog     string    `json:"exec_log,omitempty"`
 }
 
 type JobScriptsRequest struct {

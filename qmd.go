@@ -12,7 +12,7 @@ type Qmd struct {
 	DB     *DB
 
 	Scripts Scripts
-	//Queue   chan *Job
+	Queue   chan *Job
 
 	Workers chan Worker
 
@@ -33,8 +33,8 @@ func New(conf *config.Config) (*Qmd, error) {
 	}
 
 	return &Qmd{
-		Config: conf,
-		//Queue:   make(chan *Job, 4096),
+		Config:  conf,
+		Queue:   make(chan *Job, 4096),
 		Jobs:    make(map[string]*Job),
 		Closing: make(chan struct{}, 1),
 		DB:      db,

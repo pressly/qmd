@@ -1,6 +1,7 @@
 package qmd
 
 import (
+	"bytes"
 	"crypto/sha1"
 	"errors"
 	"fmt"
@@ -29,9 +30,10 @@ type Job struct {
 	Err         error         `json:"err,omitempty"`
 	Priority    Priority      `json:"priority"`
 
-	StdoutFile        string            `json:"-"`
-	StderrFile        string            `json:"-"`
-	QmdOutFile        string            `json:"-"`
+	CmdOut bytes.Buffer `json:"-"`
+	//QmdOut bytes.Buffer `json:"-"`
+	QmdOutFile string `json:"qmdoutfile"`
+
 	StoreDir          string            `json:"storedir"`
 	ExtraWorkDirFiles map[string]string `json:"extraworkdirfiles"`
 
@@ -117,40 +119,42 @@ func (job *Job) Start() error {
 func (job *Job) startOnce() {
 	log.Printf("Starting /jobs/%v\n", job.ID)
 
-	job.StdoutFile = job.Cmd.Dir + "/stdout"
-	job.StderrFile = job.Cmd.Dir + "/stderr"
 	job.QmdOutFile = job.Cmd.Dir + "/QMD_OUT"
-
 	job.Cmd.Env = append(os.Environ(),
-		"QMD_TMP="+job.Cmd.Dir+"/tmp",
+		"QMD_TMP="+job.Cmd.Dir,
 		"QMD_STORE="+job.StoreDir,
 		"QMD_OUT="+job.QmdOutFile,
 	)
 
-	// Create working directory with /tmp subdirectory.
-	err := os.MkdirAll(job.Cmd.Dir+"/tmp", 0777)
+	job.Cmd.SysProcAttr = &syscall.SysProcAttr{
+		Setpgid: true,
+		//TODO: Chroot: job.Cmd.Dir,
+	}
+
+	job.Cmd.Stdout = &job.CmdOut
+	job.Cmd.Stderr = &job.CmdOut
+
+	// r, w, err := os.Pipe()
+	// if err != nil {
+	// 	job.Err = err
+	// 	goto failedToStart
+	// }
+	// job.Cmd.ExtraFiles = []*os.File{w}
+	// go job.QmdOut.ReadFrom(r)
+
+	// Create working directory.
+	err := os.MkdirAll(job.Cmd.Dir, 0777)
 	if err != nil {
 		job.Err = err
 	}
 
-	job.Cmd.Stdout, err = os.Create(job.StdoutFile)
-	if err != nil {
-		job.Err = err
-	}
-
-	job.Cmd.Stderr, err = os.Create(job.StderrFile)
-	if err != nil {
-		job.Err = err
-	}
-
+	// Create QMD_OUT file.
+	// TODO: Change this to pipe?
 	qmdOut, err := os.Create(job.QmdOutFile)
 	if err != nil {
 		job.Err = err
 	}
 	qmdOut.Close()
-
-	// // FD 3
-	// job.ExtraFiles = append(job.ExtraFiles, qmdOut)
 
 	for file, data := range job.ExtraWorkDirFiles {
 		// Must be a simple filename without slashes.
@@ -163,11 +167,6 @@ func (job *Job) startOnce() {
 			job.Err = err
 			goto failedToStart
 		}
-	}
-
-	job.Cmd.SysProcAttr = &syscall.SysProcAttr{
-		Setpgid: true,
-		//TODO: Chroot: job.Cmd.Dir,
 	}
 
 	if err := job.Cmd.Start(); err != nil {

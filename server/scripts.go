@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"os/exec"
 
@@ -16,11 +17,11 @@ import (
 func ScriptsHandler() http.Handler {
 	s := web.New()
 	s.Use(middleware.SubRouter)
-	s.Post("/:filename", CreateSyncJob)
+	s.Post("/:filename", CreateJob)
 	return s
 }
 
-func CreateSyncJob(c web.C, w http.ResponseWriter, r *http.Request) {
+func CreateJob(c web.C, w http.ResponseWriter, r *http.Request) {
 	// Decode request data.
 	var req *api.ScriptsRequest
 	err := json.NewDecoder(r.Body).Decode(&req)
@@ -44,54 +45,64 @@ func CreateSyncJob(c web.C, w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	job.CallbackURL = req.CallbackURL
 	job.ExtraWorkDirFiles = req.Files
 
 	// Enqueue job.
 	Qmd.Enqueue(job)
 
-	// Kill the job, if client closes the connection before
-	// it receives the data.
-	done := make(chan struct{})
-	defer close(done)
-	connClosed := w.(http.CloseNotifier).CloseNotify()
-	go func() {
-		select {
-		case <-connClosed:
-			job.Kill()
-		case <-done:
-		}
-	}()
-
-	// Wait for the job to finish.
-	_ = job.Wait()
-
-	stdout, _ := ioutil.ReadFile(job.StdoutFile)
-	//stderr, _ := ioutil.ReadFile(job.StderrFile)
-	qmdOut, _ := ioutil.ReadFile(job.QmdOutFile)
-
-	var status string
-	if job.StatusCode == 0 {
-		// "OK" for backward compatibility.
-		status = "OK"
-	} else {
-		status = fmt.Sprintf("%v", job.StatusCode)
-	}
-
+	// Response.
 	resp := api.ScriptsResponse{
 		ID: job.ID,
-		//TODO: We probably don't need those in response:
-		// Script:      job.Args[0],
-		// Args:        job.Args[1:],
-		// Files:
-		CallbackURL: job.CallbackURL,
-		Status:      status,
-		StartTime:   job.StartTime,
-		EndTime:     job.EndTime,
-		Duration:    fmt.Sprintf("%f", job.Duration.Seconds()),
-		QmdOut:      string(qmdOut),
-		ExecLog:     string(stdout),
+		//TODO: These are only for backward-compatibility, we don't need them.
+		Script: c.URLParams["filename"],
+		Args:   req.Args,
+		Files:  req.Files,
 	}
 
+	if req.CallbackURL == "" {
+		// Sync job. Wait for result.
+
+		// Kill the job, if client closes the connection before
+		// it receives the data.
+		done := make(chan struct{})
+		defer close(done)
+		connClosed := w.(http.CloseNotifier).CloseNotify()
+		go func() {
+			select {
+			case <-connClosed:
+				job.Kill()
+			case <-done:
+			}
+		}()
+
+		log.Printf("wait")
+		// Wait for the job to finish.
+		_ = job.Wait()
+		log.Printf("wait finished")
+
+		if job.StatusCode == 0 {
+			// "OK" for backward compatibility.
+			resp.Status = "OK"
+		} else {
+			resp.Status = fmt.Sprintf("%v", job.StatusCode)
+		}
+
+		resp.EndTime = job.EndTime
+		resp.Duration = fmt.Sprintf("%f", job.Duration.Seconds())
+		//resp.QmdOut = job.QmdOut.String()
+		qmdOut, _ := ioutil.ReadFile(job.QmdOutFile)
+		resp.QmdOut = string(qmdOut)
+		resp.ExecLog = job.CmdOut.String()
+		resp.StartTime = job.StartTime
+
+	} else {
+		// Async job. Don't wait on anything.
+		resp.Status = "QUEUED"
+		resp.CallbackURL = req.CallbackURL
+	}
+
+	// Return response.
 	enc := json.NewEncoder(w)
 	err = enc.Encode(resp)
 	if err != nil {
