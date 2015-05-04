@@ -28,13 +28,6 @@ func CreateJob(c web.C, w http.ResponseWriter, r *http.Request) {
 	}
 	req.Script = c.URLParams["filename"]
 
-	// Does it even make sense to Is the script right?
-	_, err = Qmd.GetScript(req.Script)
-	if err != nil {
-		http.Error(w, err.Error(), 404)
-		return
-	}
-
 	// Enqueue the request.
 	data, err := json.Marshal(req)
 	if err != nil {

@@ -33,7 +33,6 @@ func (qmd *Qmd) startWorker(id int, workers chan Worker /*, quitWorkerPool chan 
 	for {
 		// Mark this worker as available.
 		workers <- worker
-		//log.Printf("len(workers) = %d\n", len(workers))
 
 		select {
 		// Wait for a job.
@@ -57,13 +56,13 @@ func (qmd *Qmd) startWorker(id int, workers chan Worker /*, quitWorkerPool chan 
 
 			// Create QMD job to run the command.
 			cmd := exec.Command(script, req.Args...)
-			qmdjob, err := qmd.Job(cmd)
+			qmdjob, err := qmd.Cmd(cmd)
 			if err != nil {
 				qmd.Queue.Ack(job)
 				log.Print("Worker[%v]: fail #3 %v", err)
 				break
 			}
-			qmdjob.ID = job.ID
+			qmdjob.JobID = job.ID
 			qmdjob.CallbackURL = req.CallbackURL
 			qmdjob.ExtraWorkDirFiles = req.Files
 
@@ -88,8 +87,7 @@ func (qmd *Qmd) startWorker(id int, workers chan Worker /*, quitWorkerPool chan 
 
 			// Response.
 			resp := api.ScriptsResponse{
-				ID: job.ID,
-				//TODO: These are only for backward-compatibility, we don't need them.
+				ID:     job.ID,
 				Script: req.Script,
 				Args:   req.Args,
 				Files:  req.Files,

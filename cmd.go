@@ -13,11 +13,11 @@ import (
 	"time"
 )
 
-type Job struct {
+type Cmd struct {
 	*exec.Cmd `json:"cmd"`
 
-	ID          string
-	State       JobState      `json:"state"`
+	JobID       string
+	State       CmdState      `json:"state"`
 	StartTime   time.Time     `json:"start_time,omitempty"`
 	EndTime     time.Time     `json:"end_time,omitempty"`
 	Duration    time.Duration `json:"duration,omitempty"`
@@ -33,9 +33,9 @@ type Job struct {
 	StoreDir          string            `json:"storedir"`
 	ExtraWorkDirFiles map[string]string `json:"extraworkdirfiles"`
 
-	// Started channel block until the job is started.
+	// Started channel block until the cmd is started.
 	Started chan struct{} `json:"-"`
-	// Finished channel block until the job is finished/killed/invalidated.
+	// Finished channel block until the cmd is finished/killed/invalidated.
 	Finished chan struct{} `json:"-"`
 
 	// WaitOnce guards the Wait() logic, so it can be called multiple times.
@@ -44,11 +44,10 @@ type Job struct {
 	StartOnce sync.Once `json:"-"`
 }
 
-type JobState int
+type CmdState int
 
 const (
-	Initialized JobState = iota
-	Enqueued
+	Initialized CmdState = iota
 	Running
 	Finished
 	Terminated
@@ -76,150 +75,150 @@ func (s Priority) String() string {
 	panic("unreachable")
 }
 
-func (qmd *Qmd) Job(cmd *exec.Cmd) (*Job, error) {
-	job := &Job{
-		Cmd:      cmd,
+func (qmd *Qmd) Cmd(from *exec.Cmd) (*Cmd, error) {
+	cmd := &Cmd{
+		Cmd:      from,
 		State:    Initialized,
 		Started:  make(chan struct{}),
 		Finished: make(chan struct{}),
 		StoreDir: qmd.Config.StoreDir,
 	}
 	//TODO: Create random temp dir instead.
-	job.Cmd.Dir = qmd.Config.WorkDir + "/" + job.ID
+	cmd.Cmd.Dir = qmd.Config.WorkDir + "/" + cmd.JobID
 
-	return job, nil
+	return cmd, nil
 }
 
-func (job *Job) Start() error {
-	job.StartOnce.Do(job.startOnce)
+func (cmd *Cmd) Start() error {
+	cmd.StartOnce.Do(cmd.startOnce)
 
-	// Wait for job to start.
-	<-job.Started
+	// Wait for cmd to start.
+	<-cmd.Started
 
-	return job.Err
+	return cmd.Err
 }
 
-func (job *Job) startOnce() {
-	log.Printf("Job: Starting job %v", job.ID)
+func (cmd *Cmd) startOnce() {
+	log.Printf("Job: Starting cmd %v", cmd.JobID)
 
-	job.QmdOutFile = job.Cmd.Dir + "/QMD_OUT"
-	job.Cmd.Env = append(os.Environ(),
-		"QMD_TMP="+job.Cmd.Dir,
-		"QMD_STORE="+job.StoreDir,
-		"QMD_OUT="+job.QmdOutFile,
+	cmd.QmdOutFile = cmd.Cmd.Dir + "/QMD_OUT"
+	cmd.Cmd.Env = append(os.Environ(),
+		"QMD_TMP="+cmd.Cmd.Dir,
+		"QMD_STORE="+cmd.StoreDir,
+		"QMD_OUT="+cmd.QmdOutFile,
 	)
 
-	job.Cmd.SysProcAttr = &syscall.SysProcAttr{
+	cmd.Cmd.SysProcAttr = &syscall.SysProcAttr{
 		Setpgid: true,
-		//TODO: Chroot: job.Cmd.Dir,
+		//TODO: Chroot: cmd.Cmd.Dir,
 	}
 
-	job.Cmd.Stdout = &job.CmdOut
-	job.Cmd.Stderr = &job.CmdOut
+	cmd.Cmd.Stdout = &cmd.CmdOut
+	cmd.Cmd.Stderr = &cmd.CmdOut
 
 	// r, w, err := os.Pipe()
 	// if err != nil {
-	// 	job.Err = err
+	// 	cmd.Err = err
 	// 	goto failedToStart
 	// }
-	// job.Cmd.ExtraFiles = []*os.File{w}
-	// go job.QmdOut.ReadFrom(r)
+	// cmd.Cmd.ExtraFiles = []*os.File{w}
+	// go cmd.QmdOut.ReadFrom(r)
 
 	// Create working directory.
-	err := os.MkdirAll(job.Cmd.Dir, 0777)
+	err := os.MkdirAll(cmd.Cmd.Dir, 0777)
 	if err != nil {
-		job.Err = err
+		cmd.Err = err
 	}
 
 	// Create QMD_OUT file.
 	// TODO: Change this to pipe?
-	qmdOut, err := os.Create(job.QmdOutFile)
+	qmdOut, err := os.Create(cmd.QmdOutFile)
 	if err != nil {
-		job.Err = err
+		cmd.Err = err
 	}
 	qmdOut.Close()
 
-	for file, data := range job.ExtraWorkDirFiles {
+	for file, data := range cmd.ExtraWorkDirFiles {
 		// Must be a simple filename without slashes.
 		if strings.Index(file, "/") != -1 {
-			job.Err = errors.New("extra file contains slashes")
+			cmd.Err = errors.New("extra file contains slashes")
 			goto failedToStart
 		}
-		err = ioutil.WriteFile(job.Cmd.Dir+"/tmp/"+file, []byte(data), 0644)
+		err = ioutil.WriteFile(cmd.Cmd.Dir+"/tmp/"+file, []byte(data), 0644)
 		if err != nil {
-			job.Err = err
+			cmd.Err = err
 			goto failedToStart
 		}
 	}
 
-	if err := job.Cmd.Start(); err != nil {
-		job.Err = err
+	if err := cmd.Cmd.Start(); err != nil {
+		cmd.Err = err
 		goto failedToStart
 	}
 
-	job.StartTime = time.Now()
-	job.State = Running
-	close(job.Started)
-	job.Err = nil
+	cmd.StartTime = time.Now()
+	cmd.State = Running
+	close(cmd.Started)
+	cmd.Err = nil
 	return
 
 failedToStart:
-	job.StatusCode = -1
-	job.State = Failed
-	job.WaitOnce.Do(func() {
-		close(job.Finished)
+	cmd.StatusCode = -1
+	cmd.State = Failed
+	cmd.WaitOnce.Do(func() {
+		close(cmd.Finished)
 	})
-	close(job.Started)
-	log.Printf("Job: Failed to start job %v: %v", job.ID, job.Err)
+	close(cmd.Started)
+	log.Printf("Job: Failed to start cmd %v: %v", cmd.JobID, cmd.Err)
 }
 
-// Wait waits for job to finish.
+// Wait waits for cmd to finish.
 // It closes the Stdout and Stderr pipes.
-func (job *Job) Wait() error {
+func (cmd *Cmd) Wait() error {
 	// Wait for Start(), if not already invoked.
-	<-job.Started
+	<-cmd.Started
 
 	// Prevent running cmd.Wait() multiple times.
-	job.WaitOnce.Do(job.waitOnce)
+	cmd.WaitOnce.Do(cmd.waitOnce)
 
-	// Wait for job to finish.
-	<-job.Finished
+	// Wait for cmd to finish.
+	<-cmd.Finished
 
-	return job.Err
+	return cmd.Err
 }
 
-func (job *Job) waitOnce() {
-	err := job.Cmd.Wait()
-	job.Duration = time.Since(job.StartTime)
-	job.EndTime = job.StartTime.Add(job.Duration)
-	if job.State != Terminated {
-		job.State = Finished
+func (cmd *Cmd) waitOnce() {
+	err := cmd.Cmd.Wait()
+	cmd.Duration = time.Since(cmd.StartTime)
+	cmd.EndTime = cmd.StartTime.Add(cmd.Duration)
+	if cmd.State != Terminated {
+		cmd.State = Finished
 	}
 
 	if err != nil {
-		job.Err = err
+		cmd.Err = err
 		if e, ok := err.(*exec.ExitError); ok {
 			if s, ok := e.Sys().(syscall.WaitStatus); ok {
-				job.StatusCode = s.ExitStatus()
+				cmd.StatusCode = s.ExitStatus()
 			}
 		}
 	}
 
 	// Make sure to kill the whole process group,
 	// so there are no subprocesses left.
-	job.Kill()
+	cmd.Kill()
 
-	close(job.Finished)
-	log.Printf("Job: Job %v finished", job.ID)
+	close(cmd.Finished)
+	log.Printf("Job: Job %v finished", cmd.JobID)
 }
 
-func (job *Job) Run() error {
-	err := job.Start()
+func (cmd *Cmd) Run() error {
+	err := cmd.Start()
 	if err != nil {
 		return err
 	}
 
-	err = job.Wait()
+	err = cmd.Wait()
 	if err != nil {
 		return err
 	}
@@ -227,21 +226,21 @@ func (job *Job) Run() error {
 	return nil
 }
 
-func (job *Job) Kill() error {
-	switch job.State {
+func (cmd *Cmd) Kill() error {
+	switch cmd.State {
 	case Running:
-		job.State = Terminated
-		pgid, err := syscall.Getpgid(job.Cmd.Process.Pid)
+		cmd.State = Terminated
+		pgid, err := syscall.Getpgid(cmd.Cmd.Process.Pid)
 		if err != nil {
 			// Fall-back on error. Kill the main process only.
-			job.Cmd.Process.Kill()
+			cmd.Cmd.Process.Kill()
 			break
 		}
 		// Kill the whole process group.
 		syscall.Kill(-pgid, 15)
 
 	case Finished:
-		pgid, err := syscall.Getpgid(job.Cmd.Process.Pid)
+		pgid, err := syscall.Getpgid(cmd.Cmd.Process.Pid)
 		if err != nil {
 			break
 		}
@@ -249,39 +248,37 @@ func (job *Job) Kill() error {
 		// so there are no subprocesses left.
 		syscall.Kill(-pgid, 15)
 
-	case Initialized, Enqueued:
-		// This one is tricky, as the job's Start() might have
-		// been called and is already in progress, but the job's
+	case Initialized:
+		// This one is tricky, as the cmd's Start() might have
+		// been called and is already in progress, but the cmd's
 		// state is not Running yet.
 		usCallingStartOnce := false
-		job.StartOnce.Do(func() {
-			job.WaitOnce.Do(func() {
-				job.State = Invalidated
-				job.StatusCode = -2
-				job.Err = errors.New("invalidated")
-				log.Printf("Job: Invalidating job %v\n", job.ID)
-				close(job.Finished)
+		cmd.StartOnce.Do(func() {
+			cmd.WaitOnce.Do(func() {
+				cmd.State = Invalidated
+				cmd.StatusCode = -2
+				cmd.Err = errors.New("invalidated")
+				log.Printf("Job: Invalidating cmd %v\n", cmd.JobID)
+				close(cmd.Finished)
 			})
-			close(job.Started)
+			close(cmd.Started)
 			usCallingStartOnce = true
 		})
 		if !usCallingStartOnce {
-			// It was job.Start() that called StartOnce.Do(), not us,
+			// It was cmd.Start() that called StartOnce.Do(), not us,
 			// thus we need to wait for Started and try to Kill again:
-			<-job.Started
-			job.Kill()
+			<-cmd.Started
+			cmd.Kill()
 		}
 	}
 
-	return job.Err
+	return cmd.Err
 }
 
-func (s JobState) String() string {
+func (s CmdState) String() string {
 	switch s {
 	case Initialized:
 		return "Initialized"
-	case Enqueued:
-		return "Enqueued"
 	case Running:
 		return "Running"
 	case Finished:

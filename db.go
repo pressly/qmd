@@ -98,12 +98,6 @@ func (db *DB) GetResponse(ID string) ([]byte, error) {
 	return resp, nil
 }
 
-func (db *DB) WaitJob(job *Job) {
-	//BLPOP "qmd:jobs:"+job.ID
-	//job.Result =
-	return
-}
-
 func (db *DB) conn() redis.Conn {
 	return db.pool.Get()
 }
