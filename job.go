@@ -2,9 +2,7 @@ package qmd
 
 import (
 	"bytes"
-	"crypto/sha1"
 	"errors"
-	"fmt"
 	"io/ioutil"
 	"log"
 	"os"
@@ -13,14 +11,12 @@ import (
 	"sync"
 	"syscall"
 	"time"
-
-	"code.google.com/p/go-uuid/uuid"
 )
 
 type Job struct {
 	*exec.Cmd `json:"cmd"`
 
-	ID          string        `json:"id"`
+	ID          string
 	State       JobState      `json:"state"`
 	StartTime   time.Time     `json:"start_time,omitempty"`
 	EndTime     time.Time     `json:"end_time,omitempty"`
@@ -81,31 +77,18 @@ func (s Priority) String() string {
 }
 
 func (qmd *Qmd) Job(cmd *exec.Cmd) (*Job, error) {
-	// Assign an unique ID to the job.
-	h := sha1.New()
-	h.Write(uuid.NewRandom())
-	id := fmt.Sprintf("%x", h.Sum(nil))
-
 	job := &Job{
 		Cmd:      cmd,
-		ID:       id,
 		State:    Initialized,
 		Started:  make(chan struct{}),
 		Finished: make(chan struct{}),
 		StoreDir: qmd.Config.StoreDir,
 	}
+	//TODO: Create random temp dir instead.
 	job.Cmd.Dir = qmd.Config.WorkDir + "/" + job.ID
 
 	return job, nil
 }
-
-// func (job *Job) UnmarshalJSON(data []byte) error {
-// 	log.Fatalf("unmarshall")
-// 	// if err = json.Unmarshal(data, &n); err == nil {
-// 	//     a.ID = n
-// 	// }
-// 	return nil
-// }
 
 func (job *Job) Start() error {
 	job.StartOnce.Do(job.startOnce)
@@ -117,7 +100,7 @@ func (job *Job) Start() error {
 }
 
 func (job *Job) startOnce() {
-	log.Printf("Starting /jobs/%v\n", job.ID)
+	log.Printf("Job: Starting job %v", job.ID)
 
 	job.QmdOutFile = job.Cmd.Dir + "/QMD_OUT"
 	job.Cmd.Env = append(os.Environ(),
@@ -187,7 +170,7 @@ failedToStart:
 		close(job.Finished)
 	})
 	close(job.Started)
-	log.Printf("Failed to start /jobs/%v: %v", job.ID, job.Err)
+	log.Printf("Job: Failed to start job %v: %v", job.ID, job.Err)
 }
 
 // Wait waits for job to finish.
@@ -227,7 +210,7 @@ func (job *Job) waitOnce() {
 	job.Kill()
 
 	close(job.Finished)
-	log.Printf("/jobs/%v finished\n", job.ID)
+	log.Printf("Job: Job %v finished", job.ID)
 }
 
 func (job *Job) Run() error {
@@ -276,7 +259,7 @@ func (job *Job) Kill() error {
 				job.State = Invalidated
 				job.StatusCode = -2
 				job.Err = errors.New("invalidated")
-				log.Printf("Invalidating /jobs/%v\n", job.ID)
+				log.Printf("Job: Invalidating job %v\n", job.ID)
 				close(job.Finished)
 			})
 			close(job.Started)

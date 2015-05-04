@@ -8,4 +8,7 @@ max_jobs          = 40
 max_exec_time     = 60
 
 [db]
-redis_uri         = "0.0.0.0:6379"
+redis_uri         = "127.0.0.1:6379"
+
+[queue]
+disque_uri        = "127.0.0.1:7711"

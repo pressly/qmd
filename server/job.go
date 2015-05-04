@@ -94,13 +94,13 @@ func ListJobs(c web.C, w http.ResponseWriter, r *http.Request) {
 }
 
 func Job(c web.C, w http.ResponseWriter, r *http.Request) {
-	job, err := Qmd.GetJob(c.URLParams["id"])
-	if err != nil {
-		http.Error(w, err.Error(), 404)
-		return
-	}
+	// job, err := Qmd.GetJob(c.URLParams["id"])
+	// if err != nil {
+	// 	http.Error(w, err.Error(), 404)
+	// 	return
+	// }
 
-	fmt.Fprintf(w, `<h1>Job %v [%s]</h1>`, job.ID, job.State)
-	fmt.Fprintf(w, `<a href="/jobs/%v/result">result</a><br>`, job.ID)
-	fmt.Fprintf(w, `<a href="/jobs/%v/logs">logs</a>`, job.ID)
+	// fmt.Fprintf(w, `<h1>Job %v [%s]</h1>`, job.ID, job.State)
+	// fmt.Fprintf(w, `<a href="/jobs/%v/result">result</a><br>`, job.ID)
+	// fmt.Fprintf(w, `<a href="/jobs/%v/logs">logs</a>`, job.ID)
 }

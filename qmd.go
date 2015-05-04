@@ -5,14 +5,17 @@ import (
 	"sync"
 
 	"github.com/pressly/qmd/config"
+
+	"github.com/goware/disque"
 )
 
 type Qmd struct {
 	Config *config.Config
 	DB     *DB
+	Queue  *disque.Conn
 
 	Scripts Scripts
-	Queue   chan *Job
+	//	Queue   chan *Job
 
 	Workers chan Worker
 
@@ -32,17 +35,29 @@ func New(conf *config.Config) (*Qmd, error) {
 		return nil, err
 	}
 
+	queue, err := disque.Connect(conf.Queue.DisqueURI)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := queue.Ping(); err != nil {
+		return nil, err
+	}
+
 	return &Qmd{
-		Config:  conf,
-		Queue:   make(chan *Job, 4096),
+		Config: conf,
+		//Queue:   make(chan *Job, 4096),
 		Jobs:    make(map[string]*Job),
 		Closing: make(chan struct{}, 1),
 		DB:      db,
+		Queue:   &queue,
 	}, nil
 }
 
 func (qmd *Qmd) Close() {
 	log.Printf("qmd.Close()")
+	qmd.DB.Close()
+	qmd.Queue.Close()
 	qmd.Closing <- struct{}{}
 	log.Fatalf("exit")
 }

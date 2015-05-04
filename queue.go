@@ -1,8 +1,9 @@
 package qmd
 
 import (
-	"errors"
 	"log"
+
+	"github.com/goware/disque"
 )
 
 func (qmd *Qmd) ListenQueue() {
@@ -10,17 +11,18 @@ func (qmd *Qmd) ListenQueue() {
 		select {
 		// Wait for some worker to become available.
 		case worker := <-qmd.Workers:
-			var job *Job
+			var job *disque.Job
 			var err error
 			for {
 				// Wait for some job.
 				job, err = qmd.Dequeue()
 				if err != nil {
-					log.Printf("dequeue failed: %v", err)
+					log.Printf("Queue: Dequeue failed: %v", err)
 					continue
 				}
 				break
 			}
+			log.Printf("Queue: Dequeued job %v", job.ID)
 			worker <- job
 
 			// case <-qmd.Closing:
@@ -33,38 +35,18 @@ func (qmd *Qmd) ListenQueue() {
 	}
 }
 
-func (qmd *Qmd) Enqueue(job *Job) error {
-	log.Printf("Enqueue /jobs/%v", job.ID)
-	job.State = Enqueued
-	qmd.Queue <- job
-	return nil
-	//return qmd.DB.EnqueueJob(job)
+func (qmd *Qmd) Enqueue(data string, priority string) (*disque.Job, error) {
+	return qmd.Queue.Enqueue(data, priority)
 }
 
-func (qmd *Qmd) Dequeue() (*Job, error) {
-	// job, err := qmd.DB.DequeueJob()
-	// if err != nil {
-	// 	return nil, err
-	// }
-	job := <-qmd.Queue
-	job.Cmd.Dir = qmd.Config.WorkDir + "/" + job.ID
-	job.StoreDir = qmd.Config.StoreDir
-
-	// Save this job to the QMD.
-	qmd.MuJobs.Lock()
-	defer qmd.MuJobs.Unlock()
-	qmd.Jobs[job.ID] = job
-
-	return job, nil
+func (qmd *Qmd) Dequeue() (*disque.Job, error) {
+	return qmd.Queue.Dequeue("urgent", "high", "low")
 }
 
-func (qmd *Qmd) GetJob(id string) (*Job, error) {
-	qmd.MuJobs.Lock()
-	defer qmd.MuJobs.Unlock()
-
-	job, ok := qmd.Jobs[id]
-	if !ok {
-		return nil, errors.New("job doesn't exist")
+func (qmd *Qmd) Wait(ID string) ([]byte, error) {
+	if err := qmd.DB.WaitForResponse(ID); err != nil {
+		return nil, err
 	}
-	return job, nil
+
+	return qmd.DB.GetResponse(ID)
 }

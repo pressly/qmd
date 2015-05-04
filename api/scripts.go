@@ -3,6 +3,7 @@ package api
 import "time"
 
 type ScriptsRequest struct {
+	Script      string            `json:"script"`
 	Args        []string          `json:"args,omitempty"`
 	Files       map[string]string `json:"files,omitempty"`
 	CallbackURL string            `json:"callback_url,omitempty"`
