@@ -45,7 +45,7 @@ func New(conf *config.Config) (*Qmd, error) {
 		Config:      conf,
 		Closing:     make(chan struct{}, 1),
 		DB:          db,
-		Queue:       &queue,
+		Queue:       queue,
 		RunningCmds: make(map[string]*Cmd),
 	}, nil
 }

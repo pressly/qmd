@@ -36,15 +36,19 @@ func (qmd *Qmd) ListenQueue() {
 }
 
 func (qmd *Qmd) Enqueue(data string, priority string) (*disque.Job, error) {
-	return qmd.Queue.Enqueue(data, priority)
+	return qmd.Queue.Add(data, priority)
 }
 
 func (qmd *Qmd) Dequeue() (*disque.Job, error) {
-	return qmd.Queue.Dequeue("urgent", "high", "low")
+	return qmd.Queue.Get("urgent", "high", "low")
+}
+
+func (qmd *Qmd) Len(priority string) (int, error) {
+	return qmd.Queue.Len(priority)
 }
 
 func (qmd *Qmd) Wait(ID string) ([]byte, error) {
-	if err := qmd.DB.WaitForResponse(ID); err != nil {
+	if err := qmd.Queue.Wait(&disque.Job{ID: ID}); err != nil {
 		return nil, err
 	}
 
