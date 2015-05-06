@@ -1,9 +1,14 @@
 package qmd
 
 import (
+	"bytes"
+	"encoding/json"
 	"log"
+	"net/http"
 
 	"github.com/goware/disque"
+
+	"github.com/pressly/qmd/api"
 )
 
 func (qmd *Qmd) ListenQueue() {
@@ -47,10 +52,44 @@ func (qmd *Qmd) Len(priority string) (int, error) {
 	return qmd.Queue.Len(priority)
 }
 
-func (qmd *Qmd) Wait(ID string) ([]byte, error) {
+func (qmd *Qmd) GetResponse(ID string) ([]byte, error) {
 	if err := qmd.Queue.Wait(&disque.Job{ID: ID}); err != nil {
 		return nil, err
 	}
 
 	return qmd.DB.GetResponse(ID)
+}
+
+func (qmd *Qmd) GetAsyncResponse(req *api.ScriptsRequest, ID string) ([]byte, error) {
+	resp := api.ScriptsResponse{
+		ID:          ID,
+		Script:      req.Script,
+		Args:        req.Args,
+		Files:       req.Files,
+		CallbackURL: req.CallbackURL,
+		Status:      "QUEUED",
+	}
+	data, err := json.Marshal(resp)
+	if err != nil {
+		return nil, err
+	}
+	return data, nil
+}
+
+func (qmd *Qmd) PostResponseCallback(req *api.ScriptsRequest, ID string) error {
+	if err := qmd.Queue.Wait(&disque.Job{ID: ID}); err != nil {
+		return err
+	}
+
+	data, err := qmd.DB.GetResponse(ID)
+	if err != nil {
+		return err
+	}
+
+	_, err = http.Post(req.CallbackURL, "application/json", bytes.NewReader(data))
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

@@ -99,7 +99,7 @@ func (cmd *Cmd) Start() error {
 }
 
 func (cmd *Cmd) startOnce() {
-	log.Printf("Job: Starting cmd %v", cmd.JobID)
+	log.Printf("Cmd: Starting %v", cmd.JobID)
 
 	cmd.QmdOutFile = cmd.Cmd.Dir + "/QMD_OUT"
 	cmd.Cmd.Env = append(os.Environ(),
@@ -169,7 +169,7 @@ failedToStart:
 		close(cmd.Finished)
 	})
 	close(cmd.Started)
-	log.Printf("Job: Failed to start cmd %v: %v", cmd.JobID, cmd.Err)
+	log.Printf("Cmd: Failed to start %v: %v", cmd.JobID, cmd.Err)
 }
 
 // Wait waits for cmd to finish.
@@ -209,7 +209,7 @@ func (cmd *Cmd) waitOnce() {
 	cmd.Kill()
 
 	close(cmd.Finished)
-	log.Printf("Job: Job %v finished", cmd.JobID)
+	log.Printf("Cmd %v finished", cmd.JobID)
 }
 
 func (cmd *Cmd) Run() error {
@@ -230,6 +230,7 @@ func (cmd *Cmd) Kill() error {
 	switch cmd.State {
 	case Running:
 		cmd.State = Terminated
+		log.Printf("Cmd: Killing %v\n", cmd.JobID)
 		pgid, err := syscall.Getpgid(cmd.Cmd.Process.Pid)
 		if err != nil {
 			// Fall-back on error. Kill the main process only.
@@ -240,6 +241,7 @@ func (cmd *Cmd) Kill() error {
 		syscall.Kill(-pgid, 15)
 
 	case Finished:
+		log.Printf("Cmd: Killing (group) %v\n", cmd.JobID)
 		pgid, err := syscall.Getpgid(cmd.Cmd.Process.Pid)
 		if err != nil {
 			break
@@ -258,7 +260,7 @@ func (cmd *Cmd) Kill() error {
 				cmd.State = Invalidated
 				cmd.StatusCode = -2
 				cmd.Err = errors.New("invalidated")
-				log.Printf("Job: Invalidating cmd %v\n", cmd.JobID)
+				log.Printf("Cmd: Invalidating %v\n", cmd.JobID)
 				close(cmd.Finished)
 			})
 			close(cmd.Started)

@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 
+	"github.com/goware/urlx"
 	"github.com/zenazn/goji/web"
 	"github.com/zenazn/goji/web/middleware"
 
@@ -19,6 +20,18 @@ func ScriptsHandler() http.Handler {
 }
 
 func CreateJob(c web.C, w http.ResponseWriter, r *http.Request) {
+	// Low, high and urgent priorities only (high is default).
+	priority := r.URL.Query().Get("priority")
+	switch priority {
+	case "low", "high", "urgent":
+		// NOP.
+	case "":
+		priority = "high"
+	default:
+		http.Error(w, "unknown priority \""+priority+"\"", 422)
+		return
+	}
+
 	// Decode request data.
 	var req *api.ScriptsRequest
 	err := json.NewDecoder(r.Body).Decode(&req)
@@ -27,6 +40,11 @@ func CreateJob(c web.C, w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	req.Script = c.URLParams["filename"]
+	req.CallbackURL, err = urlx.NormalizeString(req.CallbackURL)
+	if err != nil {
+		http.Error(w, "parse request body: "+err.Error(), 422)
+		return
+	}
 
 	// Enqueue the request.
 	data, err := json.Marshal(req)
@@ -35,25 +53,35 @@ func CreateJob(c web.C, w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// "low", "high" and "urgent" priorities
-	// "high" priority by default
-	priority := r.URL.Query().Get("priority")
-	switch priority {
-	case "low", "high", "urgent":
-	default:
-		priority = "high"
-	}
-
+	log.Printf("Handler: Enqueue request (\"%v priority\")", priority)
 	job, err := Qmd.Enqueue(string(data), priority)
 	if err != nil {
 		http.Error(w, err.Error(), 500)
 		return
 	}
-	log.Printf("Handler: Enqueue job %v (\"%v priority\")", job.ID, job.Queue)
 
-	log.Printf("Handler: Wait for job %s", job.ID)
-	resp, err := Qmd.Wait(job.ID)
+	// Async.
+	if req.CallbackURL != "" {
+		resp, _ := Qmd.GetAsyncResponse(req, job.ID)
+		w.Write(resp)
+		log.Printf("Handler: Responded with job %s ASYNC result", job.ID)
+
+		go func() {
+			//TODO: Retry?
+			err := Qmd.PostResponseCallback(req, job.ID)
+			if err != nil {
+				log.Printf("can't post callback to %v", err)
+			}
+		}()
+		return
+	}
+
+	// Sync.
+	log.Printf("Handler: Enqueued. Wait for job %s", job.ID)
+
+	resp, _ := Qmd.GetResponse(job.ID)
 	w.Write(resp)
+
 	log.Printf("Handler: Responded with job %s result", job.ID)
 
 	// 	// Kill the job, if client closes the connection before

@@ -3,7 +3,6 @@ package qmd
 import (
 	"encoding/json"
 	"errors"
-	"log"
 	"time"
 
 	"github.com/garyburd/redigo/redis"
@@ -62,24 +61,7 @@ func (db *DB) SaveResponse(resp *api.ScriptsResponse) error {
 	if err != nil {
 		return err
 	}
-	//	log.Print("Going to save result into ", "qmd:job:"+resp.ID+":done ", "and")
-	sess.Send("MULTI")
-	sess.Send("SET", redis.Args{}.Add("qmd:job:"+resp.ID).Add(data)...)
-	sess.Send("RPUSH", "qmd:job:"+resp.ID+":done", "1", "1", "1", "1", "1", "1", "1", "1", "1", "1")
-	sess.Send("EXPIRE", "qmd:job:"+resp.ID+":done", "60")
-	_, err = sess.Do("EXEC")
-
-	//	log.Printf("Save response ID=%v: %v", resp.ID, err)
-	return err
-}
-
-func (db *DB) WaitForResponse(ID string) error {
-	sess := db.conn()
-	defer sess.Close()
-
-	//	log.Printf("Wait for response ID=%v", ID)
-	_, err := sess.Do("BLPOP", "qmd:job:"+ID+":done", "360")
-	//	log.Printf("Wait done ID=%v", ID)
+	_, err = sess.Do("SET", redis.Args{}.Add("qmd:job:"+resp.ID).Add(data)...)
 	return err
 }
 
@@ -87,14 +69,11 @@ func (db *DB) GetResponse(ID string) ([]byte, error) {
 	sess := db.conn()
 	defer sess.Close()
 
-	//	log.Printf("Get response ID=%v", ID)
 	resp, err := redis.Bytes(sess.Do("GET", "qmd:job:"+ID))
 	if err != nil {
-		log.Printf("======ERR Got response ID=%v", ID)
 		return nil, err
 	}
 
-	//	log.Printf("Got response ID=%v", ID)
 	return resp, nil
 }
 
