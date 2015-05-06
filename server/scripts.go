@@ -40,10 +40,14 @@ func CreateJob(c web.C, w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	req.Script = c.URLParams["filename"]
-	req.CallbackURL, err = urlx.NormalizeString(req.CallbackURL)
-	if err != nil {
-		http.Error(w, "parse request body: "+err.Error(), 422)
-		return
+
+	// Make sure ASYNC callback is valid URL.
+	if req.CallbackURL != "" {
+		req.CallbackURL, err = urlx.NormalizeString(req.CallbackURL)
+		if err != nil {
+			http.Error(w, "parse request body: "+err.Error(), 422)
+			return
+		}
 	}
 
 	// Enqueue the request.
@@ -53,7 +57,7 @@ func CreateJob(c web.C, w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Printf("Handler: Enqueue request (\"%v priority\")", priority)
+	log.Printf("Handler: Enqueue \"%v\" request", priority)
 	job, err := Qmd.Enqueue(string(data), priority)
 	if err != nil {
 		http.Error(w, err.Error(), 500)

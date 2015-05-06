@@ -12,7 +12,7 @@ import (
 type Qmd struct {
 	Config *config.Config
 	DB     *DB
-	Queue  *disque.Conn
+	Queue  *disque.Pool
 
 	Scripts     Scripts
 	Workers     chan Worker
@@ -32,7 +32,7 @@ func New(conf *config.Config) (*Qmd, error) {
 		return nil, err
 	}
 
-	queue, err := disque.Connect(conf.Queue.DisqueURI)
+	queue, err := disque.New(conf.Queue.DisqueURI)
 	if err != nil {
 		return nil, err
 	}

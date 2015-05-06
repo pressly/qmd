@@ -48,10 +48,6 @@ func (qmd *Qmd) Dequeue() (*disque.Job, error) {
 	return qmd.Queue.Get("urgent", "high", "low")
 }
 
-func (qmd *Qmd) Len(priority string) (int, error) {
-	return qmd.Queue.Len(priority)
-}
-
 func (qmd *Qmd) GetResponse(ID string) ([]byte, error) {
 	if err := qmd.Queue.Wait(&disque.Job{ID: ID}); err != nil {
 		return nil, err

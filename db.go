@@ -3,6 +3,7 @@ package qmd
 import (
 	"encoding/json"
 	"errors"
+	"log"
 	"time"
 
 	"github.com/garyburd/redigo/redis"
@@ -14,7 +15,6 @@ var (
 )
 
 const logTTL = 7 * 24 * 60 * 60 // 1 week in seconds
-const jobDoneTTL = 60 * 60      // 1 hour in seconds
 
 type DB struct {
 	pool *redis.Pool
@@ -22,8 +22,8 @@ type DB struct {
 
 func NewDB(address string) (*DB, error) {
 	pool := &redis.Pool{
-		MaxIdle:     64,
-		MaxActive:   64,
+		MaxIdle:     1024,
+		MaxActive:   1024,
 		IdleTimeout: 300 * time.Second,
 		Wait:        true,
 		Dial: func() (redis.Conn, error) {
@@ -61,7 +61,12 @@ func (db *DB) SaveResponse(resp *api.ScriptsResponse) error {
 	if err != nil {
 		return err
 	}
-	_, err = sess.Do("SET", redis.Args{}.Add("qmd:job:"+resp.ID).Add(data)...)
+
+	sess.Send("MULTI")
+	sess.Send("INCR", redis.Args{}.Add("qmd:finished")...)
+	sess.Send("SET", redis.Args{}.Add("qmd:job:"+resp.ID).Add(data)...)
+	sess.Send("EXPIRE", redis.Args{}.Add("qmd:job:"+resp.ID).Add(logTTL)...)
+	_, err = sess.Do("EXEC")
 	return err
 }
 
@@ -69,12 +74,37 @@ func (db *DB) GetResponse(ID string) ([]byte, error) {
 	sess := db.conn()
 	defer sess.Close()
 
-	resp, err := redis.Bytes(sess.Do("GET", "qmd:job:"+ID))
+	reply, err := redis.Bytes(sess.Do("GET", "qmd:job:"+ID))
 	if err != nil {
 		return nil, err
 	}
 
-	return resp, nil
+	return reply, nil
+}
+
+func (db *DB) TotalLen() (int, error) {
+	sess := db.conn()
+	defer sess.Close()
+
+	reply, err := redis.Int(sess.Do("GET", "qmd:finished"))
+	if err != nil {
+		return 0, err
+	}
+
+	return reply, nil
+}
+
+func (db *DB) Len() (int, error) {
+	sess := db.conn()
+	defer sess.Close()
+
+	reply, err := redis.Strings(sess.Do("KEYS", "qmd:job:*"))
+	log.Printf("----------- KEYS qmd:job:* %T %v %v", reply, reply, err)
+	if err != nil {
+		return 0, err
+	}
+
+	return len(reply), nil
 }
 
 func (db *DB) conn() redis.Conn {

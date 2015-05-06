@@ -37,7 +37,7 @@ func (qmd *Qmd) startWorker(id int, workers chan Worker /*, quitWorkerPool chan 
 		select {
 		// Wait for a job.
 		case job := <-worker:
-			log.Printf("Worker[%v]: Got job %v (\"%v priority\")", id, job.ID, job.Queue)
+			log.Printf("Worker[%v]: Got \"%v\" job %v", id, job.Queue, job.ID)
 
 			var req *api.ScriptsRequest
 			err := json.Unmarshal([]byte(job.Data), &req)
