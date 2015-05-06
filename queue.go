@@ -22,12 +22,12 @@ func (qmd *Qmd) ListenQueue() {
 				// Wait for some job.
 				job, err = qmd.Dequeue()
 				if err != nil {
-					log.Printf("Queue: Dequeue failed: %v", err)
+					log.Printf("Queue:\tDequeue failed: %v", err)
 					continue
 				}
 				break
 			}
-			log.Printf("Queue: Dequeued job %v", job.ID)
+			log.Printf("Queue:\tDequeued job %v", job.ID)
 			worker <- job
 
 			// case <-qmd.Closing:

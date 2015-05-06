@@ -3,7 +3,6 @@ package qmd
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"os/exec"
 	"time"
@@ -37,53 +36,52 @@ func (qmd *Qmd) startWorker(id int, workers chan Worker /*, quitWorkerPool chan 
 		select {
 		// Wait for a job.
 		case job := <-worker:
-			log.Printf("Worker[%v]: Got \"%v\" job %v", id, job.Queue, job.ID)
+			log.Printf("Worker %v:\tGot \"%v\" job %v", id, job.Queue, job.ID)
 
 			var req *api.ScriptsRequest
 			err := json.Unmarshal([]byte(job.Data), &req)
 			if err != nil {
 				qmd.Queue.Ack(job)
-				log.Printf("Worker[%v]: fail #1 %v", err)
+				log.Printf("Worker %v:\tfail #1 %v", err)
 				break
 			}
 
 			script, err := qmd.GetScript(req.Script)
 			if err != nil {
 				qmd.Queue.Ack(job)
-				log.Printf("Worker[%v]: fail #2 %v", err)
+				log.Printf("Worker %v:\tfail #2 %v", err)
 				break
 			}
 
 			// Create QMD job to run the command.
-			cmd := exec.Command(script, req.Args...)
-			qmdjob, err := qmd.Cmd(cmd)
+			cmd, err := qmd.Cmd(exec.Command(script, req.Args...))
 			if err != nil {
 				qmd.Queue.Ack(job)
-				log.Print("Worker[%v]: fail #3 %v", err)
+				log.Print("Worker %v:\t fail #3 %v", err)
 				break
 			}
-			qmdjob.JobID = job.ID
-			qmdjob.CallbackURL = req.CallbackURL
-			qmdjob.ExtraWorkDirFiles = req.Files
+			cmd.JobID = job.ID
+			cmd.CallbackURL = req.CallbackURL
+			cmd.ExtraWorkDirFiles = req.Files
 
 			// Run a job.
-			go qmdjob.Run()
-			<-qmdjob.Started
+			go cmd.Run()
+			<-cmd.Started
 
 			select {
 			// Wait for the job to finish.
-			case <-qmdjob.Finished:
-				log.Printf("Worker[%v]: Cmd for job %v finished", id, job.ID)
+			case <-cmd.Finished:
 
 			// Or kill it, if it doesn't finish in a specified time.
 			case <-time.After(time.Duration(qmd.Config.MaxExecTime) * time.Second):
-				qmdjob.Kill()
-				qmdjob.Wait()
+				cmd.Kill()
+				cmd.Wait()
 
 				// case <-quit:
 				// 	log.Printf("worker[%d]: Stopping\n", id)
 				// 	return
 			}
+			cmd.Cleanup()
 
 			// Response.
 			resp := api.ScriptsResponse{
@@ -93,25 +91,23 @@ func (qmd *Qmd) startWorker(id int, workers chan Worker /*, quitWorkerPool chan 
 				Files:  req.Files,
 			}
 
-			if qmdjob.StatusCode == 0 {
-				// "OK" for backward compatibility.
+			// "OK" and "ERR" for backward compatibility.
+			if cmd.StatusCode == 0 {
 				resp.Status = "OK"
 			} else {
-				resp.Status = fmt.Sprintf("%v", qmdjob.StatusCode)
+				resp.Status = "ERR"
 			}
 
-			resp.EndTime = qmdjob.EndTime
-			resp.Duration = fmt.Sprintf("%f", qmdjob.Duration.Seconds())
-			//resp.QmdOut = job.QmdOut.String()
-			qmdOut, _ := ioutil.ReadFile(qmdjob.QmdOutFile)
-			resp.QmdOut = string(qmdOut)
-			resp.ExecLog = qmdjob.CmdOut.String()
-			resp.StartTime = qmdjob.StartTime
+			resp.EndTime = cmd.EndTime
+			resp.Duration = fmt.Sprintf("%f", cmd.Duration.Seconds())
+			resp.QmdOut = cmd.QmdOut.String()
+			resp.ExecLog = cmd.CmdOut.String()
+			resp.StartTime = cmd.StartTime
 
 			qmd.DB.SaveResponse(&resp)
 
 			qmd.Queue.Ack(job)
-			log.Printf("Worker[%v]: Job %v ACKed", id, job.ID)
+			log.Printf("Worker %v:\tACKed job %v", id, job.ID)
 		}
 	}
 }

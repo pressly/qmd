@@ -17,31 +17,31 @@ type Cmd struct {
 	*exec.Cmd `json:"cmd"`
 
 	JobID       string
-	State       CmdState      `json:"state"`
-	StartTime   time.Time     `json:"start_time,omitempty"`
-	EndTime     time.Time     `json:"end_time,omitempty"`
-	Duration    time.Duration `json:"duration,omitempty"`
-	StatusCode  int           `json:"status_code,omitempty"`
-	CallbackURL string        `json:"callback_url"`
-	Err         error         `json:"err,omitempty"`
-	Priority    Priority      `json:"priority"`
+	State       CmdState
+	StartTime   time.Time
+	EndTime     time.Time
+	Duration    time.Duration
+	StatusCode  int
+	CallbackURL string
+	Err         error
+	Priority    Priority
 
-	CmdOut bytes.Buffer `json:"-"`
-	//QmdOut bytes.Buffer `json:"-"`
-	QmdOutFile string `json:"qmdoutfile"`
+	CmdOut     bytes.Buffer
+	QmdOut     bytes.Buffer
+	QmdOutFile string
 
-	StoreDir          string            `json:"storedir"`
-	ExtraWorkDirFiles map[string]string `json:"extraworkdirfiles"`
+	StoreDir          string
+	ExtraWorkDirFiles map[string]string
 
 	// Started channel block until the cmd is started.
-	Started chan struct{} `json:"-"`
+	Started chan struct{}
 	// Finished channel block until the cmd is finished/killed/invalidated.
-	Finished chan struct{} `json:"-"`
+	Finished chan struct{}
 
 	// WaitOnce guards the Wait() logic, so it can be called multiple times.
-	WaitOnce sync.Once `json:"-"`
+	WaitOnce sync.Once
 	// StartOnce guards the Start() logic, so it can be called multiple times.
-	StartOnce sync.Once `json:"-"`
+	StartOnce sync.Once
 }
 
 type CmdState int
@@ -99,8 +99,9 @@ func (cmd *Cmd) Start() error {
 }
 
 func (cmd *Cmd) startOnce() {
-	log.Printf("Cmd: Starting %v", cmd.JobID)
+	log.Printf("Cmd:\tStarting %v", cmd.JobID)
 
+	cmd.Cmd.Dir += "/" + cmd.JobID
 	cmd.QmdOutFile = cmd.Cmd.Dir + "/QMD_OUT"
 	cmd.Cmd.Env = append(os.Environ(),
 		"QMD_TMP="+cmd.Cmd.Dir,
@@ -116,14 +117,6 @@ func (cmd *Cmd) startOnce() {
 	cmd.Cmd.Stdout = &cmd.CmdOut
 	cmd.Cmd.Stderr = &cmd.CmdOut
 
-	// r, w, err := os.Pipe()
-	// if err != nil {
-	// 	cmd.Err = err
-	// 	goto failedToStart
-	// }
-	// cmd.Cmd.ExtraFiles = []*os.File{w}
-	// go cmd.QmdOut.ReadFrom(r)
-
 	// Create working directory.
 	err := os.MkdirAll(cmd.Cmd.Dir, 0777)
 	if err != nil {
@@ -131,7 +124,6 @@ func (cmd *Cmd) startOnce() {
 	}
 
 	// Create QMD_OUT file.
-	// TODO: Change this to pipe?
 	qmdOut, err := os.Create(cmd.QmdOutFile)
 	if err != nil {
 		cmd.Err = err
@@ -169,7 +161,7 @@ failedToStart:
 		close(cmd.Finished)
 	})
 	close(cmd.Started)
-	log.Printf("Cmd: Failed to start %v: %v", cmd.JobID, cmd.Err)
+	log.Printf("Cmd:\tFailed to start %v: %v", cmd.JobID, cmd.Err)
 }
 
 // Wait waits for cmd to finish.
@@ -204,12 +196,16 @@ func (cmd *Cmd) waitOnce() {
 		}
 	}
 
-	// Make sure to kill the whole process group,
-	// so there are no subprocesses left.
-	cmd.Kill()
+	if f, err := os.Open(cmd.QmdOutFile); err == nil {
+		_, err := cmd.QmdOut.ReadFrom(f)
+		if err != nil {
+			cmd.Err = err
+		}
+		f.Close()
+	}
 
 	close(cmd.Finished)
-	log.Printf("Cmd %v finished", cmd.JobID)
+	log.Printf("Cmd:\tFinished %v", cmd.JobID)
 }
 
 func (cmd *Cmd) Run() error {
@@ -230,7 +226,7 @@ func (cmd *Cmd) Kill() error {
 	switch cmd.State {
 	case Running:
 		cmd.State = Terminated
-		log.Printf("Cmd: Killing %v\n", cmd.JobID)
+		log.Printf("Cmd:\tKilling %v\n", cmd.JobID)
 		pgid, err := syscall.Getpgid(cmd.Cmd.Process.Pid)
 		if err != nil {
 			// Fall-back on error. Kill the main process only.
@@ -241,7 +237,7 @@ func (cmd *Cmd) Kill() error {
 		syscall.Kill(-pgid, 15)
 
 	case Finished:
-		log.Printf("Cmd: Killing (group) %v\n", cmd.JobID)
+		log.Printf("Cmd:\tKilling pgroup %v\n", cmd.JobID)
 		pgid, err := syscall.Getpgid(cmd.Cmd.Process.Pid)
 		if err != nil {
 			break
@@ -275,6 +271,22 @@ func (cmd *Cmd) Kill() error {
 	}
 
 	return cmd.Err
+}
+
+func (cmd *Cmd) Cleanup() error {
+	log.Printf("Cmd:\tCleaning %v\n", cmd.JobID)
+
+	// Make sure to kill the whole process group,
+	// so there are no subprocesses left.
+	cmd.Kill()
+
+	// Remove working directory.
+	err := os.RemoveAll(cmd.Cmd.Dir)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (s CmdState) String() string {

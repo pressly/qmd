@@ -3,7 +3,6 @@ package qmd
 import (
 	"encoding/json"
 	"errors"
-	"log"
 	"time"
 
 	"github.com/garyburd/redigo/redis"
@@ -11,7 +10,7 @@ import (
 )
 
 var (
-	ErrDBGetKey = errors.New("DB: Unable to get the key")
+	ErrNotFound = errors.New("not found")
 )
 
 const logTTL = 7 * 24 * 60 * 60 // 1 week in seconds
@@ -76,6 +75,9 @@ func (db *DB) GetResponse(ID string) ([]byte, error) {
 
 	reply, err := redis.Bytes(sess.Do("GET", "qmd:job:"+ID))
 	if err != nil {
+		if err == redis.ErrNil {
+			return nil, ErrNotFound
+		}
 		return nil, err
 	}
 
@@ -99,7 +101,6 @@ func (db *DB) Len() (int, error) {
 	defer sess.Close()
 
 	reply, err := redis.Strings(sess.Do("KEYS", "qmd:job:*"))
-	log.Printf("----------- KEYS qmd:job:* %T %v %v", reply, reply, err)
 	if err != nil {
 		return 0, err
 	}
