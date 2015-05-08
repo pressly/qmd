@@ -40,8 +40,8 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	app.StartWorkers()
 	go app.WatchScripts()
+	go app.StartWorkers()
 	go app.ListenQueue()
 
 	graceful.AddSignal(syscall.SIGINT, syscall.SIGTERM)

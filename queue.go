@@ -12,30 +12,27 @@ import (
 )
 
 func (qmd *Qmd) ListenQueue() {
+	log.Printf("Queue:\tListening")
+
 	for {
 		select {
 		// Wait for some worker to become available.
 		case worker := <-qmd.Workers:
-			var job *disque.Job
-			var err error
-			for {
-				// Wait for some job.
-				job, err = qmd.Dequeue()
-				if err != nil {
-					log.Printf("Queue:\tDequeue failed: %v", err)
-					continue
-				}
+			// Dequeue job or try again.
+			job, err := qmd.Dequeue()
+			if err != nil {
+				// log.Printf("Queue:\tDequeue failed: %v", err)
+				qmd.Workers <- worker
 				break
 			}
 			log.Printf("Queue:\tDequeued job %v", job.ID)
+			// Send the job to the worker.
 			worker <- job
 
-			// case <-qmd.Closing:
-			// 	log.Printf("ListenQueue(): Closing QMD workers\n")
-			// 	for quit := range quitWorkerPool {
-			// 		quit <- struct{}{}
-			// 	}
-			// 	return
+		case <-qmd.Closing:
+			log.Printf("Queue:\tStopped listening\n")
+			close(qmd.ClosingWorkers)
+			return
 		}
 	}
 }

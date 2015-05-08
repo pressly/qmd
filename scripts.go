@@ -2,12 +2,10 @@ package qmd
 
 import (
 	"errors"
-	"log"
 	"os"
 	"path"
 	"path/filepath"
 	"sync"
-	"time"
 )
 
 type Scripts struct {
@@ -17,34 +15,17 @@ type Scripts struct {
 	files      map[string]string // Map of scripts names to the actual files.
 }
 
-// Watch watches a specific directory for files and updates the cache.
-func (s *Scripts) Watch(dir string) {
-	for {
-		info, err := os.Stat(dir)
-		if err != nil {
-			log.Printf("script_dir=\"" + dir + "\": no such directory")
-			time.Sleep(1 * time.Second)
-			continue
-		}
-		if !info.IsDir() {
-			log.Printf("script_dir=\"" + dir + "\": not a directory")
-			time.Sleep(1 * time.Second)
-			continue
-		}
-
-		err = s.Walk(dir)
-		if err != nil {
-			log.Print(err)
-			time.Sleep(1 * time.Second)
-			continue
-		}
-
-		time.Sleep(10 * time.Second)
+// Update walks ScriptDir directory for shell scripts
+// and updates the files cache.
+func (s *Scripts) Update(dir string) error {
+	info, err := os.Stat(dir)
+	if err != nil {
+		return errors.New("script_dir=\"" + dir + "\": no such directory")
 	}
-}
+	if !info.IsDir() {
+		return errors.New("script_dir=\"" + dir + "\": not a directory")
+	}
 
-// Walk walks the ScriptDir and finds all the shell scripts.
-func (s *Scripts) Walk(dir string) error {
 	files := map[string]string{}
 	if err := filepath.Walk(dir, func(file string, info os.FileInfo, err error) error {
 		if !info.IsDir() {

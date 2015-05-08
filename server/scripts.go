@@ -57,7 +57,7 @@ func CreateJob(c web.C, w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Printf("Handler:\tEnqueue request \"%v\"", priority)
+	log.Printf("Handler:\tEnqueue \"%v\" request", priority)
 	job, err := Qmd.Enqueue(string(data), priority)
 	if err != nil {
 		http.Error(w, err.Error(), 500)

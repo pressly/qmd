@@ -15,20 +15,18 @@ type Worker chan *disque.Job
 
 func (qmd *Qmd) StartWorkers() {
 	qmd.Workers = make(chan Worker, qmd.Config.MaxJobs)
-	// quitWorkerPool := make(chan chan struct{})
 
 	log.Printf("Starting %v QMD workers\n", qmd.Config.MaxJobs)
 	for i := 0; i < qmd.Config.MaxJobs; i++ {
-		go qmd.startWorker(i, qmd.Workers /*, quitWorkerPool*/)
+		go qmd.startWorker(i, qmd.Workers)
 	}
 }
 
-func (qmd *Qmd) startWorker(id int, workers chan Worker /*, quitWorkerPool chan chan struct{}*/) {
-	// quit := make(chan struct{})
-	// quitWorkerPool <- quit
+func (qmd *Qmd) startWorker(id int, workers chan Worker) {
+	qmd.Wait.Add(1)
+	defer qmd.Wait.Done()
 
 	worker := make(Worker)
-
 	for {
 		// Mark this worker as available.
 		workers <- worker
@@ -76,12 +74,17 @@ func (qmd *Qmd) startWorker(id int, workers chan Worker /*, quitWorkerPool chan 
 			case <-time.After(time.Duration(qmd.Config.MaxExecTime) * time.Second):
 				cmd.Kill()
 				cmd.Wait()
+				cmd.Cleanup()
 
-				// case <-quit:
-				// 	log.Printf("worker[%d]: Stopping\n", id)
-				// 	return
+			// Or kill it, if QMD is closing.
+			case <-qmd.ClosingWorkers:
+				log.Printf("Worker %d:\tStopping (busy)\n", id)
+				cmd.Kill()
+				cmd.Cleanup()
+				qmd.Queue.Nack(job)
+				log.Printf("Worker %d:\tNACKed job %v\n", id, job.ID)
+				return
 			}
-			cmd.Cleanup()
 
 			// Response.
 			resp := api.ScriptsResponse{
@@ -108,6 +111,10 @@ func (qmd *Qmd) startWorker(id int, workers chan Worker /*, quitWorkerPool chan 
 
 			qmd.Queue.Ack(job)
 			log.Printf("Worker %v:\tACKed job %v", id, job.ID)
+
+		case <-qmd.ClosingWorkers:
+			log.Printf("Worker %d:\tStopping (idle)\n", id)
+			return
 		}
 	}
 }
