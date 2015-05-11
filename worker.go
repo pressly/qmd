@@ -23,8 +23,8 @@ func (qmd *Qmd) StartWorkers() {
 }
 
 func (qmd *Qmd) startWorker(id int, workers chan Worker) {
-	qmd.Wait.Add(1)
-	defer qmd.Wait.Done()
+	qmd.WaitWorkers.Add(1)
+	defer qmd.WaitWorkers.Done()
 
 	worker := make(Worker)
 	for {

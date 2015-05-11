@@ -22,6 +22,7 @@ func APIHandler(qmd *qmd.Qmd) http.Handler {
 	h.Use(middleware.NoCache)
 	h.Use(middleware.Recoverer)
 	h.Use(middleware.Logger)
+	h.Use(qmd.ClosingResponder)
 
 	h.Use(heartbeat.Route("/ping"))
 	h.Use(heartbeat.Route("/"))

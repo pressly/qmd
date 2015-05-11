@@ -2,6 +2,7 @@ package qmd
 
 import (
 	"log"
+	"net/http"
 	"sync"
 	"time"
 
@@ -17,9 +18,11 @@ type Qmd struct {
 	Scripts Scripts
 	Workers chan Worker
 
-	Closing        chan struct{}
-	ClosingWorkers chan struct{}
-	Wait           sync.WaitGroup
+	Closing            bool
+	ClosingListenQueue chan struct{}
+	WaitListenQueue    sync.WaitGroup
+	ClosingWorkers     chan struct{}
+	WaitWorkers        sync.WaitGroup
 }
 
 func New(conf *config.Config) (*Qmd, error) {
@@ -46,11 +49,11 @@ func New(conf *config.Config) (*Qmd, error) {
 	}
 
 	qmd := &Qmd{
-		Config:         conf,
-		DB:             db,
-		Queue:          queue,
-		Closing:        make(chan struct{}),
-		ClosingWorkers: make(chan struct{}),
+		Config:             conf,
+		DB:                 db,
+		Queue:              queue,
+		ClosingListenQueue: make(chan struct{}),
+		ClosingWorkers:     make(chan struct{}),
 	}
 
 	if err := qmd.Scripts.Update(qmd.Config.ScriptDir); err != nil {
@@ -63,8 +66,14 @@ func New(conf *config.Config) (*Qmd, error) {
 func (qmd *Qmd) Close() {
 	log.Printf("Closing")
 
-	close(qmd.Closing)
-	qmd.Wait.Wait()
+	qmd.Closing = true
+
+	close(qmd.ClosingListenQueue)
+	qmd.WaitListenQueue.Wait()
+
+	close(qmd.ClosingWorkers)
+	qmd.WaitWorkers.Wait()
+
 	qmd.DB.Close()
 	qmd.Queue.Close()
 
@@ -85,4 +94,15 @@ func (qmd *Qmd) WatchScripts() {
 		}
 		time.Sleep(10 * time.Second)
 	}
+}
+
+func (qmd *Qmd) ClosingResponder(h http.Handler) http.Handler {
+	handler := func(w http.ResponseWriter, r *http.Request) {
+		if qmd.Closing {
+			http.Error(w, "Temporary unavailable", 503)
+			return
+		}
+		h.ServeHTTP(w, r)
+	}
+	return http.HandlerFunc(handler)
 }

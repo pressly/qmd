@@ -12,6 +12,9 @@ import (
 )
 
 func (qmd *Qmd) ListenQueue() {
+	qmd.WaitListenQueue.Add(1)
+	defer qmd.WaitListenQueue.Done()
+
 	log.Printf("Queue:\tListening")
 
 	for {
@@ -29,9 +32,8 @@ func (qmd *Qmd) ListenQueue() {
 			// Send the job to the worker.
 			worker <- job
 
-		case <-qmd.Closing:
+		case <-qmd.ClosingListenQueue:
 			log.Printf("Queue:\tStopped listening\n")
-			close(qmd.ClosingWorkers)
 			return
 		}
 	}
