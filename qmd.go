@@ -52,6 +52,7 @@ func New(conf *config.Config) (*Qmd, error) {
 		Config:             conf,
 		DB:                 db,
 		Queue:              queue,
+		Workers:            make(chan Worker, conf.MaxJobs),
 		ClosingListenQueue: make(chan struct{}),
 		ClosingWorkers:     make(chan struct{}),
 	}
