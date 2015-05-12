@@ -106,6 +106,7 @@ func (qmd *Qmd) startWorker(id int, workers chan Worker) {
 			resp.QmdOut = cmd.QmdOut.String()
 			resp.ExecLog = cmd.CmdOut.String()
 			resp.StartTime = cmd.StartTime
+			resp.Err = cmd.Err.Error()
 
 			qmd.DB.SaveResponse(&resp)
 

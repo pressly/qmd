@@ -24,6 +24,7 @@ type ScriptsResponse struct {
 	Duration    string    `json:"duration,omitempty"`
 	QmdOut      string    `json:"output,omitempty"`
 	ExecLog     string    `json:"exec_log,omitempty"`
+	Err         string    `json:"error,omitempty"`
 }
 
 type JobScriptsRequest struct {

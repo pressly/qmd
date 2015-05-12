@@ -71,7 +71,7 @@ func CreateJob(c web.C, w http.ResponseWriter, r *http.Request) {
 		log.Printf("Handler:\tResponded with job %s ASYNC result", job.ID)
 
 		go func() {
-			//TODO: Retry?
+			//TODO: Retry callback if it failed?
 			err := Qmd.PostResponseCallback(req, job.ID)
 			if err != nil {
 				log.Printf("can't post callback to %v", err)

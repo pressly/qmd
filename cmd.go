@@ -83,8 +83,7 @@ func (qmd *Qmd) Cmd(from *exec.Cmd) (*Cmd, error) {
 		Finished: make(chan struct{}),
 		StoreDir: qmd.Config.StoreDir,
 	}
-	//TODO: Create random temp dir instead.
-	cmd.Cmd.Dir = qmd.Config.WorkDir + "/" + cmd.JobID
+	cmd.Cmd.Dir = qmd.Config.WorkDir
 
 	return cmd, nil
 }
@@ -133,10 +132,10 @@ func (cmd *Cmd) startOnce() {
 	for file, data := range cmd.ExtraWorkDirFiles {
 		// Must be a simple filename without slashes.
 		if strings.Index(file, "/") != -1 {
-			cmd.Err = errors.New("extra file contains slashes")
+			cmd.Err = errors.New("extra files must not contain any slashes in the path")
 			goto failedToStart
 		}
-		err = ioutil.WriteFile(cmd.Cmd.Dir+"/tmp/"+file, []byte(data), 0644)
+		err = ioutil.WriteFile(cmd.Cmd.Dir+"/"+file, []byte(data), 0644)
 		if err != nil {
 			cmd.Err = err
 			goto failedToStart
