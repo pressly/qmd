@@ -2,6 +2,7 @@ package qmd
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"path"
 	"path/filepath"
@@ -55,7 +56,7 @@ func (s *Scripts) Get(file string) (string, error) {
 
 	script, ok := s.files[file]
 	if !ok {
-		return "", errors.New("script doesn't exist")
+		return "", fmt.Errorf(`script "%v" doesn't exist`, file)
 	}
 	return script, nil
 }
