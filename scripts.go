@@ -3,9 +3,11 @@ package qmd
 import (
 	"errors"
 	"fmt"
+	"log"
 	"os"
 	"path"
 	"path/filepath"
+	"reflect"
 	"sync"
 )
 
@@ -43,8 +45,19 @@ func (s *Scripts) Update(dir string) error {
 		return err
 	}
 
+	if len(files) == 0 {
+		return errors.New("script_dir=\"" + dir + "\" is empty")
+	}
+
 	s.Lock()
 	defer s.Unlock()
+
+	if !reflect.DeepEqual(s.files, files) {
+		log.Print("Scripts:	Loading new files from script_dir:")
+		for rel, _ := range files {
+			log.Printf("Scripts:	 - %v", rel)
+		}
+	}
 
 	s.files = files
 	return nil
