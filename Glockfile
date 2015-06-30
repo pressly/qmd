@@ -1,8 +1,9 @@
-github.com/BurntSushi/toml 3883ac1ce943878302255f538fce319d23226223
+github.com/BurntSushi/toml 056c9bc7be7190eaa7715723883caffa5f8fa3e4
 github.com/PuerkitoBio/purell d69616f51cdfcd7514d6a380847a152dfc2a749d
-github.com/garyburd/redigo 535138d7bcd717d6531c701ef5933d98b1866257
+github.com/garyburd/redigo 3e4727f0ef5938d3a846cdb57e560dba4419e854
 github.com/goware/disque 7c53cf7fda54902dfb18441b2f664925d15e793c
 github.com/goware/urlx 0c5b5e0d84d824b141166ed64e8c88e24753c37f
+github.com/op/go-logging e8d5414f0947014548c2334044a0fac13187dfee
 github.com/opennota/urlesc 5fa9ff0392746aeae1c4b37fcc42c65afa7a9587
-github.com/pressly/gohttpware c5e0d343fb88a23a549207a481a6019fa266daf3
-github.com/zenazn/goji 739f05c9497895aee8d398a8ff38fb0517c4d670
+github.com/pressly/gohttpware 534e706de4bf22788a80a52f88c886a51449e68c
+github.com/zenazn/goji eaa649ab77fd613bb3d44dde6b4e6043a01eee66
