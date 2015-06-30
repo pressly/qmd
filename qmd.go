@@ -1,15 +1,20 @@
 package qmd
 
 import (
+	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"sync"
 	"time"
 
-	"github.com/pressly/qmd/config"
-
 	"github.com/goware/disque"
+	"github.com/op/go-logging"
+
+	"github.com/pressly/qmd/config"
 )
+
+var lg = logging.MustGetLogger("qmd")
 
 type Qmd struct {
 	Config  *config.Config
@@ -17,6 +22,7 @@ type Qmd struct {
 	Queue   *disque.Pool
 	Scripts Scripts
 	Workers chan Worker
+	Logger  *logging.Logger
 
 	Closing            bool
 	ClosingListenQueue chan struct{}
@@ -55,17 +61,32 @@ func New(conf *config.Config) (*Qmd, error) {
 		Workers:            make(chan Worker, conf.MaxJobs),
 		ClosingListenQueue: make(chan struct{}),
 		ClosingWorkers:     make(chan struct{}),
+		Logger:             lg,
 	}
 
 	if err := qmd.Scripts.Update(qmd.Config.ScriptDir); err != nil {
 		return nil, err
 	}
 
+	backends := []logging.Backend{
+		logging.NewLogBackend(os.Stdout, "", log.LstdFlags),
+	}
+
+	if conf.Slack.Enabled {
+		backends = append(backends, &SlackNotifier{
+			WebhookURL: conf.Slack.WebhookURL,
+			Channel:    conf.Slack.Channel,
+			Prefix:     fmt.Sprintf("%v: ", conf.URL),
+		})
+	}
+
+	logging.SetBackend(backends...)
+
 	return qmd, nil
 }
 
 func (qmd *Qmd) Close() {
-	log.Printf("Closing")
+	lg.Debug("Closing")
 
 	qmd.Closing = true
 
@@ -78,7 +99,7 @@ func (qmd *Qmd) Close() {
 	qmd.DB.Close()
 	qmd.Queue.Close()
 
-	log.Fatalf("Closed")
+	lg.Fatal("Closed")
 }
 
 func (qmd *Qmd) GetScript(file string) (string, error) {
@@ -89,7 +110,7 @@ func (qmd *Qmd) WatchScripts() {
 	for {
 		err := qmd.Scripts.Update(qmd.Config.ScriptDir)
 		if err != nil {
-			log.Print(err)
+			lg.Error(err.Error())
 			time.Sleep(1 * time.Second)
 			continue
 		}

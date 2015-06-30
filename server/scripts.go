@@ -2,7 +2,6 @@ package server
 
 import (
 	"encoding/json"
-	"log"
 	"net/http"
 
 	"github.com/goware/urlx"
@@ -57,7 +56,7 @@ func CreateJob(c web.C, w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Printf("Handler:\tEnqueue \"%v\" request", priority)
+	lg.Debug("Handler:\tEnqueue \"%v\" request", priority)
 	job, err := Qmd.Enqueue(string(data), priority)
 	if err != nil {
 		http.Error(w, err.Error(), 500)
@@ -68,25 +67,25 @@ func CreateJob(c web.C, w http.ResponseWriter, r *http.Request) {
 	if req.CallbackURL != "" {
 		resp, _ := Qmd.GetAsyncResponse(req, job.ID)
 		w.Write(resp)
-		log.Printf("Handler:\tResponded with job %s ASYNC result", job.ID)
+		lg.Debug("Handler:\tResponded with job %s ASYNC result", job.ID)
 
 		go func() {
 			//TODO: Retry callback if it failed?
 			err := Qmd.PostResponseCallback(req, job.ID)
 			if err != nil {
-				log.Printf("can't post callback to %v", err)
+				lg.Error("can't post callback to %v", err)
 			}
 		}()
 		return
 	}
 
 	// Sync.
-	log.Printf("Handler:\tWaiting for job %s", job.ID)
+	lg.Debug("Handler:\tWaiting for job %s", job.ID)
 
 	resp, _ := Qmd.GetResponse(job.ID)
 	w.Write(resp)
 
-	log.Printf("Handler:\tResponded with job %s result", job.ID)
+	lg.Debug("Handler:\tResponded with job %s result", job.ID)
 
 	// 	// Kill the job, if client closes the connection before
 	// 	// it receives the data.

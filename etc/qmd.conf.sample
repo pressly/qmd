@@ -1,4 +1,5 @@
 bind              = "0.0.0.0:8484"
+url               = "http://localhost:8484"
 max_procs         = -1
 debug_mode        = true
 script_dir        = "./examples/scripts"
@@ -12,3 +13,8 @@ redis_uri         = "127.0.0.1:6379"
 
 [queue]
 disque_uri        = "127.0.0.1:7711"
+
+[slack]
+enabled           = false
+webhook_url       = ""
+channel           = "#qmd"

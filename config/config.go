@@ -13,6 +13,7 @@ var ErrNoConfFile = errors.New("no configuration file specified")
 // Config holds configuration read from config file.
 type Config struct {
 	Bind        string      `toml:"bind"`
+	URL         string      `toml:"url"`
 	MaxProcs    int         `toml:"max_procs"`
 	ScriptDir   string      `toml:"script_dir"`
 	WorkDir     string      `toml:"work_dir"`
@@ -21,6 +22,7 @@ type Config struct {
 	MaxExecTime int         `toml:"max_exec_time"`
 	DB          DBConfig    `toml:"db"`
 	Queue       QueueConfig `toml:"queue"`
+	Slack       SlackConfig `toml:"slack"`
 }
 
 type DBConfig struct {
@@ -29,6 +31,12 @@ type DBConfig struct {
 
 type QueueConfig struct {
 	DisqueURI string `toml:"disque_uri"`
+}
+
+type SlackConfig struct {
+	Enabled    bool   `toml:"enabled"`
+	WebhookURL string `toml:"webhook_url"`
+	Channel    string `toml:"channel"`
 }
 
 // New reads configuration from a specified file and creates new Config object.

@@ -3,7 +3,6 @@ package qmd
 import (
 	"errors"
 	"fmt"
-	"log"
 	"os"
 	"path"
 	"path/filepath"
@@ -53,9 +52,9 @@ func (s *Scripts) Update(dir string) error {
 	defer s.Unlock()
 
 	if !reflect.DeepEqual(s.files, files) {
-		log.Print("Scripts:	Loading new files from script_dir:")
+		lg.Debug("Scripts:	Loading new files from script_dir:")
 		for rel, _ := range files {
-			log.Printf("Scripts:	 - %v", rel)
+			lg.Debug("Scripts:	 - %v", rel)
 		}
 	}
 

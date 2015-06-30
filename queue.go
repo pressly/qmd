@@ -3,7 +3,6 @@ package qmd
 import (
 	"bytes"
 	"encoding/json"
-	"log"
 	"net/http"
 
 	"github.com/goware/disque"
@@ -15,7 +14,7 @@ func (qmd *Qmd) ListenQueue() {
 	qmd.WaitListenQueue.Add(1)
 	defer qmd.WaitListenQueue.Done()
 
-	log.Printf("Queue:\tListening")
+	lg.Debug("Queue:\tListening")
 
 	for {
 		select {
@@ -24,16 +23,15 @@ func (qmd *Qmd) ListenQueue() {
 			// Dequeue job or try again.
 			job, err := qmd.Dequeue()
 			if err != nil {
-				// log.Printf("Queue:\tDequeue failed: %v", err)
 				qmd.Workers <- worker
 				break
 			}
-			log.Printf("Queue:\tDequeued job %v", job.ID)
+			lg.Debug("Queue:\tDequeued job %v", job.ID)
 			// Send the job to the worker.
 			worker <- job
 
 		case <-qmd.ClosingListenQueue:
-			log.Printf("Queue:\tStopped listening\n")
+			lg.Debug("Queue:\tStopped listening\n")
 			return
 		}
 	}

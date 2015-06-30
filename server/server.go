@@ -3,6 +3,7 @@ package server
 import (
 	"net/http"
 
+	"github.com/op/go-logging"
 	"github.com/pressly/gohttpware/heartbeat"
 	"github.com/zenazn/goji/web"
 	"github.com/zenazn/goji/web/middleware"
@@ -10,10 +11,15 @@ import (
 	"github.com/pressly/qmd"
 )
 
-var Qmd *qmd.Qmd
+var (
+	Qmd *qmd.Qmd
+	lg  *logging.Logger
+)
 
 func APIHandler(qmd *qmd.Qmd) http.Handler {
 	Qmd = qmd
+	lg = qmd.Logger
+
 	h := web.New()
 
 	h.Use(middleware.EnvInit)

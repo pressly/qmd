@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"errors"
 	"io/ioutil"
-	"log"
 	"os"
 	"os/exec"
 	"strings"
@@ -98,7 +97,7 @@ func (cmd *Cmd) Start() error {
 }
 
 func (cmd *Cmd) startOnce() {
-	log.Printf("Cmd:\tStarting %v", cmd.JobID)
+	lg.Debug("Cmd:\tStarting %v", cmd.JobID)
 
 	cmd.Cmd.Dir += "/" + cmd.JobID
 	cmd.QmdOutFile = cmd.Cmd.Dir + "/QMD_OUT"
@@ -160,7 +159,7 @@ failedToStart:
 		close(cmd.Finished)
 	})
 	close(cmd.Started)
-	log.Printf("Cmd:\tFailed to start %v: %v", cmd.JobID, cmd.Err)
+	lg.Debug("Cmd:\tFailed to start %v: %v", cmd.JobID, cmd.Err)
 }
 
 // Wait waits for cmd to finish.
@@ -204,7 +203,7 @@ func (cmd *Cmd) waitOnce() {
 	}
 
 	close(cmd.Finished)
-	log.Printf("Cmd:\tFinished %v", cmd.JobID)
+	lg.Debug("Cmd:\tFinished %v", cmd.JobID)
 }
 
 func (cmd *Cmd) Run() error {
@@ -225,7 +224,7 @@ func (cmd *Cmd) Kill() error {
 	switch cmd.State {
 	case Running:
 		cmd.State = Terminated
-		log.Printf("Cmd:\tKilling %v\n", cmd.JobID)
+		lg.Debug("Cmd:\tKilling %v\n", cmd.JobID)
 		pgid, err := syscall.Getpgid(cmd.Cmd.Process.Pid)
 		if err != nil {
 			// Fall-back on error. Kill the main process only.
@@ -236,7 +235,7 @@ func (cmd *Cmd) Kill() error {
 		syscall.Kill(-pgid, 15)
 
 	case Finished:
-		log.Printf("Cmd:\tKilling pgroup %v\n", cmd.JobID)
+		lg.Debug("Cmd:\tKilling pgroup %v\n", cmd.JobID)
 		pgid, err := syscall.Getpgid(cmd.Cmd.Process.Pid)
 		if err != nil {
 			break
@@ -255,7 +254,7 @@ func (cmd *Cmd) Kill() error {
 				cmd.State = Invalidated
 				cmd.StatusCode = -2
 				cmd.Err = errors.New("invalidated")
-				log.Printf("Cmd: Invalidating %v\n", cmd.JobID)
+				lg.Debug("Cmd: Invalidating %v\n", cmd.JobID)
 				close(cmd.Finished)
 			})
 			close(cmd.Started)
@@ -273,7 +272,7 @@ func (cmd *Cmd) Kill() error {
 }
 
 func (cmd *Cmd) Cleanup() error {
-	log.Printf("Cmd:\tCleaning %v\n", cmd.JobID)
+	lg.Debug("Cmd:\tCleaning %v\n", cmd.JobID)
 
 	// Make sure to kill the whole process group,
 	// so there are no subprocesses left.
