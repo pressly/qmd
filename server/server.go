@@ -1,6 +1,7 @@
 package server
 
 import (
+	_ "expvar"
 	"net/http"
 
 	"github.com/op/go-logging"
@@ -35,6 +36,8 @@ func APIHandler(qmd *qmd.Qmd) http.Handler {
 
 	h.Handle("/scripts/*", ScriptsHandler())
 	h.Handle("/jobs/*", JobsHandler())
+
+	h.Handle("/debug/vars", http.DefaultServeMux)
 
 	return h
 }
