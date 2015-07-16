@@ -41,7 +41,7 @@ func (s *SlackNotifier) Log(level logging.Level, calldepth int, rec *logging.Rec
 	}
 
 	if resp.StatusCode != 200 {
-		return fmt.Errorf("coudn't POST to slack webhook %v", s.WebhookURL)
+		return fmt.Errorf("couldn't POST to slack webhook %v", s.WebhookURL)
 	}
 
 	return nil
