@@ -19,11 +19,11 @@ type slackPayload struct {
 	Text     string `json:"text"`
 }
 
-func (s *SlackNotifier) Notify(msg error) error {
+func (s *SlackNotifier) Notify(msg string) error {
 	payload, err := json.Marshal(slackPayload{
 		Channel:  s.Channel,
 		Username: "QMD",
-		Text:     s.Prefix + msg.Error(),
+		Text:     s.Prefix + msg,
 	})
 	if err != nil {
 		return err

@@ -27,7 +27,7 @@ func Routes(qmd *qmd.Qmd) http.Handler {
 	r.Use(qmd.ClosingResponder)
 
 	r.Use(heartbeat.Route("/ping"))
-	r.Use(heartbeat.Route("/"))
+	r.Get("/", handlers.Index)
 
 	r.Post("/scripts/:filename", handlers.CreateJob)
 

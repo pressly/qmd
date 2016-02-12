@@ -14,7 +14,7 @@ import (
 type Worker chan *disque.Job
 
 func (qmd *Qmd) StartWorkers() {
-	lg.Debug("Starting %v QMD workers\n", qmd.Config.MaxJobs)
+	lg.Debugf("Starting %v QMD workers", qmd.Config.MaxJobs)
 	for i := 0; i < qmd.Config.MaxJobs; i++ {
 		go qmd.startWorker(i, qmd.Workers)
 	}
@@ -32,20 +32,20 @@ func (qmd *Qmd) startWorker(id int, workers chan Worker) {
 		select {
 		// Wait for a job.
 		case job := <-worker:
-			lg.Info("Worker %v:\tGot \"%v\" job %v/jobs/%v", id, job.Queue, qmd.Config.URL, job.ID)
+			lg.Infof("Worker %v:\tGot \"%v\" job %v/jobs/%v", id, job.Queue, qmd.Config.URL, job.ID)
 
 			var req *api.ScriptsRequest
 			err := json.Unmarshal([]byte(job.Data), &req)
 			if err != nil {
 				qmd.Queue.Ack(job)
-				lg.Info("Worker %v:\tfailed #1 %v", err)
+				lg.Infof("Worker %v:\tfailed #1 %v", err)
 				break
 			}
 
 			script, err := qmd.GetScript(req.Script)
 			if err != nil {
 				qmd.Queue.Ack(job)
-				lg.Info("Worker %v:\tfailed #2 %v", err)
+				lg.Infof("Worker %v:\tfailed #2 %v", err)
 				break
 			}
 
@@ -53,7 +53,7 @@ func (qmd *Qmd) startWorker(id int, workers chan Worker) {
 			cmd, err := qmd.Cmd(exec.Command(script, req.Args...))
 			if err != nil {
 				qmd.Queue.Ack(job)
-				lg.Info("Worker %v:\tfailed #3 %v", err)
+				lg.Infof("Worker %v:\tfailed #3 %v", err)
 				break
 			}
 			cmd.JobID = job.ID
@@ -76,11 +76,11 @@ func (qmd *Qmd) startWorker(id int, workers chan Worker) {
 
 			// Or kill it, if QMD is closing.
 			case <-qmd.ClosingWorkers:
-				lg.Debug("Worker %d:\tStopping (busy)\n", id)
+				lg.Debugf("Worker %d:\tStopping (busy)", id)
 				cmd.Kill()
 				cmd.Cleanup()
 				qmd.Queue.Nack(job)
-				lg.Debug("Worker %d:\tNACKed job %v/jobs/%v\n", id, qmd.Config.URL, job.ID)
+				lg.Debugf("Worker %d:\tNACKed job %v/jobs/%v", id, qmd.Config.URL, job.ID)
 				return
 			}
 
@@ -111,10 +111,10 @@ func (qmd *Qmd) startWorker(id int, workers chan Worker) {
 			qmd.DB.SaveResponse(&resp)
 
 			qmd.Queue.Ack(job)
-			lg.Info("Worker %v:\tACKed job %v/jobs/%v", id, qmd.Config.URL, job.ID)
+			lg.Infof("Worker %v:\tACKed job %v/jobs/%v", id, qmd.Config.URL, job.ID)
 
 		case <-qmd.ClosingWorkers:
-			lg.Debug("Worker %d:\tStopping (idle)\n", id)
+			lg.Debugf("Worker %d:\tStopping (idle)", id)
 			return
 		}
 	}

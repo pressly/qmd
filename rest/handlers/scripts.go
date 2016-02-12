@@ -50,7 +50,7 @@ func CreateJob(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	lg.Debug("Handler:\tEnqueue \"%v\" request", priority)
+	lg.Debugf("Handler:\tEnqueue \"%v\" request", priority)
 	job, err := Qmd.Enqueue(string(data), priority)
 	if err != nil {
 		http.Error(w, err.Error(), 500)
@@ -61,25 +61,25 @@ func CreateJob(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	if req.CallbackURL != "" {
 		resp, _ := Qmd.GetAsyncResponse(req, job.ID)
 		w.Write(resp)
-		lg.Debug("Handler:\tResponded with job %s ASYNC result", job.ID)
+		lg.Debugf("Handler:\tResponded with job %s ASYNC result", job.ID)
 
 		go func() {
 			//TODO: Retry callback if it failed?
 			err := Qmd.PostResponseCallback(req, job.ID)
 			if err != nil {
-				lg.Error("can't post callback to %v", err)
+				lg.Errorf("can't post callback to %v", err)
 			}
 		}()
 		return
 	}
 
 	// Sync.
-	lg.Debug("Handler:\tWaiting for job %s", job.ID)
+	lg.Debugf("Handler:\tWaiting for job %s", job.ID)
 
 	resp, _ := Qmd.GetResponse(job.ID)
 	w.Write(resp)
 
-	lg.Debug("Handler:\tResponded with job %s result", job.ID)
+	lg.Debugf("Handler:\tResponded with job %s result", job.ID)
 
 	// 	// Kill the job, if client closes the connection before
 	// 	// it receives the data.

@@ -56,7 +56,7 @@ func (s *Scripts) Update(dir string) error {
 	if !reflect.DeepEqual(s.files, files) {
 		lg.Debug("Scripts:	Loading new files from script_dir:")
 		for rel, _ := range files {
-			lg.Debug("Scripts:	 - %v", rel)
+			lg.Debugf("Scripts:	 - %v", rel)
 		}
 	}
 

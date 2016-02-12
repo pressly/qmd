@@ -27,12 +27,12 @@ func (qmd *Qmd) ListenQueue() {
 				qmd.Workers <- worker
 				break
 			}
-			lg.Debug("Queue:\tDequeued job %v", job.ID)
+			lg.Debugf("Queue:\tDequeued job %v", job.ID)
 			// Send the job to the worker.
 			worker <- job
 
 		case <-qmd.ClosingListenQueue:
-			lg.Debug("Queue:\tStopped listening\n")
+			lg.Debug("Queue:\tStopped listening")
 			return
 		}
 	}

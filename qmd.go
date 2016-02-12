@@ -71,15 +71,15 @@ func New(conf *config.Config) (*Qmd, error) {
 		return nil, err
 	}
 
-	// if err := lg.SetLevelString(strings.ToLower(conf.Logging.Level)); err != nil {
-	// 	return nil, err
-	// }
+	if err := lg.SetLevelString("debug"); err != nil {
+		return nil, err
+	}
 
 	lg.AlertFn = func(level lg.Level, msg string) {
 		qmd := qmd
 		switch level {
 		case lg.ErrorLevel, lg.FatalLevel, lg.PanicLevel:
-			qmd.Slack.Notify(fmt.Errorf("%s", msg))
+			qmd.Slack.Notify(msg)
 		}
 	}
 
@@ -99,8 +99,6 @@ func (qmd *Qmd) Close() {
 
 	qmd.DB.Close()
 	qmd.Queue.Close()
-
-	lg.Fatal("Closed")
 }
 
 func (qmd *Qmd) GetScript(file string) (string, error) {
@@ -122,7 +120,7 @@ func (qmd *Qmd) WatchScripts() {
 func (qmd *Qmd) ClosingResponder(h http.Handler) http.Handler {
 	handler := func(w http.ResponseWriter, r *http.Request) {
 		if qmd.Closing {
-			http.Error(w, "Temporary unavailable", 503)
+			http.Error(w, http.StatusText(503), 503)
 			return
 		}
 		h.ServeHTTP(w, r)
