@@ -4,11 +4,13 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/zenazn/goji/web"
+	"golang.org/x/net/context"
 )
 
-func Job(c web.C, w http.ResponseWriter, r *http.Request) {
-	resp, err := Qmd.GetResponse(c.URLParams["id"])
+func Job(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+	id, _ := ctx.Value("id").(string)
+
+	resp, err := Qmd.GetResponse(id)
 	if err != nil {
 		http.Error(w, err.Error(), 404)
 		return
@@ -16,7 +18,7 @@ func Job(c web.C, w http.ResponseWriter, r *http.Request) {
 	w.Write(resp)
 }
 
-func Jobs(c web.C, w http.ResponseWriter, r *http.Request) {
+func Jobs(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	low, _ := Qmd.Queue.Len("low")
 	high, _ := Qmd.Queue.Len("high")
 	urgent, _ := Qmd.Queue.Len("urgent")

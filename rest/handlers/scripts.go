@@ -6,12 +6,13 @@ import (
 
 	"github.com/goware/lg"
 	"github.com/goware/urlx"
-	"github.com/zenazn/goji/web"
+	"golang.org/x/net/context"
 
+	"github.com/pressly/chi"
 	"github.com/pressly/qmd/rest/api"
 )
 
-func CreateJob(c web.C, w http.ResponseWriter, r *http.Request) {
+func CreateJob(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	// Low, high and urgent priorities only (high is default).
 	priority := r.URL.Query().Get("priority")
 	switch priority {
@@ -31,7 +32,7 @@ func CreateJob(c web.C, w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "parse request body: "+err.Error(), 422)
 		return
 	}
-	req.Script = c.URLParams["filename"]
+	req.Script = chi.URLParams(ctx)["filename"]
 
 	// Make sure ASYNC callback is valid URL.
 	if req.CallbackURL != "" {
