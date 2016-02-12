@@ -8,7 +8,6 @@ import (
 
 	"github.com/pressly/chi"
 	"github.com/pressly/chi/middleware"
-	"github.com/pressly/gohttpware/heartbeat"
 
 	"github.com/pressly/qmd"
 	"github.com/pressly/qmd/rest/handlers"
@@ -26,8 +25,8 @@ func Routes(qmd *qmd.Qmd) http.Handler {
 	r.Use(middleware.Logger)
 	r.Use(qmd.ClosingResponder)
 
-	r.Use(heartbeat.Route("/ping"))
 	r.Get("/", handlers.Index)
+	r.Get("/ping", handlers.Ping)
 
 	r.Post("/scripts/:filename", handlers.CreateJob)
 

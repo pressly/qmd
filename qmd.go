@@ -67,10 +67,6 @@ func New(conf *config.Config) (*Qmd, error) {
 		Slack:              slack,
 	}
 
-	if err := qmd.Scripts.Update(qmd.Config.ScriptDir); err != nil {
-		return nil, err
-	}
-
 	if err := lg.SetLevelString("debug"); err != nil {
 		return nil, err
 	}
@@ -105,12 +101,11 @@ func (qmd *Qmd) GetScript(file string) (string, error) {
 	return qmd.Scripts.Get(file)
 }
 
+// TODO: Use fsnotify.
 func (qmd *Qmd) WatchScripts() {
 	for {
-		err := qmd.Scripts.Update(qmd.Config.ScriptDir)
-		if err != nil {
-			lg.Error(err.Error())
-			time.Sleep(1 * time.Second)
+		if err := qmd.Scripts.Update(qmd.Config.ScriptDir); err != nil {
+			lg.Error(err)
 			continue
 		}
 		time.Sleep(10 * time.Second)

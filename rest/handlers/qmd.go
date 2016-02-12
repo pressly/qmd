@@ -12,3 +12,7 @@ var Qmd *qmd.Qmd
 func Index(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(`¯\_(ツ)_/¯`))
 }
+
+func Ping(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+	w.Write([]byte(`.`))
+}

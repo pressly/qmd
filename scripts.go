@@ -19,8 +19,7 @@ type Scripts struct {
 	files      map[string]string // Map of scripts names to the actual files.
 }
 
-// Update walks ScriptDir directory for shell scripts
-// and updates the files cache.
+// Update walks ScriptDir directory for shell scripts and updates the files cache.
 func (s *Scripts) Update(dir string) error {
 	info, err := os.Stat(dir)
 	if err != nil {
