@@ -1,0 +1,45 @@
+# Compiled Object files, Static and Dynamic libs (Shared Objects)
+*.o
+*.a
+*.so
+
+# Folders
+_obj
+_test
+
+# Architecture specific extensions/prefixes
+*.[568vq]
+[568vq].out
+
+*.cgo1.go
+*.cgo2.c
+_cgo_defun.c
+_cgo_gotypes.go
+_cgo_export.*
+
+_testmain.go
+
+*.exe
+*.test
+
+# User added ignores
+Vagrantfile
+.vagrant
+.vendor
+qmd
+config.toml
+tmp
+jobs
+store
+cmd/qmdserver/qmdserver
+cmd/qmdworker/qmdworker
+cmd/qmd_to_keen/qmd_to_keen
+cmd/qmd_to_slack/qmd_to_slack
+cmd/qmd_to_sendgrid/qmd_to_sendgrid
+
+# NSQ and Deploy files
+nohup.out
+nsqd*
+reload*
+testing*
+dump.rdb

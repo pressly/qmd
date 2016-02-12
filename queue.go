@@ -1,44 +1,88 @@
 package qmd
 
 import (
-	"fmt"
+	"bytes"
+	"encoding/json"
+	"net/http"
 
-	"github.com/bitly/go-nsq"
+	"github.com/goware/disque"
+
+	"github.com/pressly/qmd/api"
 )
 
-type QueueConfig struct {
-	HostNSQDAddr string   `toml:"host_nsqd_address"`
-	NSQDAddrs    []string `toml:"nsqd_addresses"`
-	LookupdAddrs []string `toml:"lookupd_addresses"`
+func (qmd *Qmd) ListenQueue() {
+	qmd.WaitListenQueue.Add(1)
+	defer qmd.WaitListenQueue.Done()
+
+	lg.Debug("Queue:\tListening")
+
+	for {
+		select {
+		// Wait for some worker to become available.
+		case worker := <-qmd.Workers:
+			// Dequeue job or try again.
+			job, err := qmd.Dequeue()
+			if err != nil {
+				qmd.Workers <- worker
+				break
+			}
+			lg.Debug("Queue:\tDequeued job %v", job.ID)
+			// Send the job to the worker.
+			worker <- job
+
+		case <-qmd.ClosingListenQueue:
+			lg.Debug("Queue:\tStopped listening\n")
+			return
+		}
+	}
 }
 
-func (qc *QueueConfig) Clean() error {
-	if len(qc.LookupdAddrs) == 0 {
-		if len(qc.NSQDAddrs) == 0 {
-			return fmt.Errorf("Both LookupdAddresses and NSQDAddresses are missing")
-		}
-	}
-	return nil
+func (qmd *Qmd) Enqueue(data string, priority string) (*disque.Job, error) {
+	return qmd.Queue.Add(data, priority)
 }
 
-func ConnectConsumer(qc *QueueConfig, consumer *nsq.Consumer) error {
-	var err error
+func (qmd *Qmd) Dequeue() (*disque.Job, error) {
+	return qmd.Queue.Get("urgent", "high", "low")
+}
 
-	// Connect consumers to NSQLookupd
-	if qc.LookupdAddrs != nil && len(qc.LookupdAddrs) != 0 {
-		lg.Info("Connecting Consumer to the following NSQLookupds %s", qc.LookupdAddrs)
-		err = consumer.ConnectToNSQLookupds(qc.LookupdAddrs)
-		if err != nil {
-			return err
-		}
+func (qmd *Qmd) GetResponse(ID string) ([]byte, error) {
+	if err := qmd.Queue.Wait(&disque.Job{ID: ID}); err != nil {
+		return nil, err
 	}
-	// Connect consumers to NSQD
-	if qc.NSQDAddrs != nil && len(qc.NSQDAddrs) != 0 {
-		lg.Info("Connecting Consumer to the following NSQDs %s", qc.NSQDAddrs)
-		err = consumer.ConnectToNSQDs(qc.NSQDAddrs)
-		if err != nil {
-			return err
-		}
+
+	return qmd.DB.GetResponse(ID)
+}
+
+func (qmd *Qmd) GetAsyncResponse(req *api.ScriptsRequest, ID string) ([]byte, error) {
+	resp := api.ScriptsResponse{
+		ID:          ID,
+		Script:      req.Script,
+		Args:        req.Args,
+		Files:       req.Files,
+		CallbackURL: req.CallbackURL,
+		Status:      "QUEUED",
 	}
+	data, err := json.Marshal(resp)
+	if err != nil {
+		return nil, err
+	}
+	return data, nil
+}
+
+func (qmd *Qmd) PostResponseCallback(req *api.ScriptsRequest, ID string) error {
+	if err := qmd.Queue.Wait(&disque.Job{ID: ID}); err != nil {
+		return err
+	}
+
+	data, err := qmd.DB.GetResponse(ID)
+	if err != nil {
+		return err
+	}
+
+	_, err = http.Post(req.CallbackURL, "application/json", bytes.NewReader(data))
+	if err != nil {
+		return err
+	}
+
 	return nil
 }

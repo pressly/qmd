@@ -1,120 +1,113 @@
 package qmd
 
 import (
-	"fmt"
+	"encoding/json"
+	"errors"
 	"time"
 
 	"github.com/garyburd/redigo/redis"
+	"github.com/pressly/qmd/api"
 )
 
-const logTTL = 7 * 24 * time.Hour // 1 week
+var (
+	ErrNotFound = errors.New("not found")
+)
+
+const logTTL = 7 * 24 * 60 * 60 // 1 week in seconds
 
 type DB struct {
-	*redis.Pool
+	pool *redis.Pool
 }
 
-type Conn struct {
-	redis.Conn
-}
-
-func NewDB(address string) *DB {
-	db := &redis.Pool{
-		MaxIdle:     3,
-		IdleTimeout: 240 * time.Second,
+func NewDB(address string) (*DB, error) {
+	pool := &redis.Pool{
+		MaxIdle:     1024,
+		MaxActive:   1024,
+		IdleTimeout: 300 * time.Second,
+		Wait:        true,
 		Dial: func() (redis.Conn, error) {
-			con, err := redis.Dial("tcp", address)
+			c, err := redis.Dial("tcp", address)
 			if err != nil {
 				return nil, err
 			}
-			return con, err
+			return c, err
 		},
-		TestOnBorrow: func(con redis.Conn, t time.Time) error {
-			_, err := con.Do("PING")
+		TestOnBorrow: func(c redis.Conn, t time.Time) error {
+			_, err := c.Do("PING")
 			return err
 		},
 	}
-	return &DB{db}
+	return &DB{pool: pool}, nil
 }
 
-func (db DB) Open() *Conn {
-	return &Conn{db.Get()}
+func (db *DB) Close() {
+	db.pool.Close()
 }
 
-func (db DB) SetLog(script, id, data string) (bool, error) {
-	c := db.Open()
-	defer c.Close()
-	currentTime := time.Now()
-	defer db.trimLog(script, currentTime)
+func (db *DB) Ping() error {
+	sess := db.conn()
+	defer sess.Close()
+	if _, err := sess.Do("PING"); err != nil {
+		return err
+	}
+	return nil
+}
 
-	// Add entry to database
-	c.Send("MULTI")
-	c.Send("HSET", script, id, data)
-	s := fmt.Sprintf("%s Logs", script)
-	c.Send("ZADD", s, currentTime.UnixNano(), id)
-	_, err := c.Do("EXEC")
+func (db *DB) SaveResponse(resp *api.ScriptsResponse) error {
+	sess := db.conn()
+	defer sess.Close()
+	data, err := json.Marshal(resp)
 	if err != nil {
-		return false, err
+		return err
 	}
-	lg.Info("Added %s to %s logs", id, script)
 
-	return true, nil
+	sess.Send("MULTI")
+	sess.Send("INCR", redis.Args{}.Add("qmd:finished")...)
+	sess.Send("SET", redis.Args{}.Add("qmd:job:"+resp.ID).Add(data)...)
+	sess.Send("EXPIRE", redis.Args{}.Add("qmd:job:"+resp.ID).Add(logTTL)...)
+	_, err = sess.Do("EXEC")
+	return err
 }
 
-func (db DB) GetLog(script, id string) (string, error) {
-	c := db.Open()
-	defer c.Close()
-	return redis.String(c.Do("HGET", script, id))
-}
+func (db *DB) GetResponse(ID string) ([]byte, error) {
+	sess := db.conn()
+	defer sess.Close()
 
-func (db DB) GetLogs(script string, limit int) ([]string, error) {
-	c := db.Open()
-	defer c.Close()
-
-	var start int
-	if limit > 0 {
-		start = -limit - 1
-	} else {
-		start = 0
-	}
-	key := fmt.Sprintf("%s Logs", script)
-	ids, err := redis.Strings(c.Do("ZRANGE", key, start, -1))
+	reply, err := redis.Bytes(sess.Do("GET", "qmd:job:"+ID))
 	if err != nil {
-		return ids, err
-	}
-	c.Send("MULTI")
-	for _, id := range ids {
-		c.Send("HGET", script, id)
-	}
-	return redis.Strings(c.Do("EXEC"))
-}
-
-func (db DB) trimLog(script string, currentTime time.Time) {
-	c := db.Open()
-	defer c.Close()
-
-	key := fmt.Sprintf("%s Logs", script)
-
-	// Clean up old entries older than a logTTL
-	oldTime := currentTime.Add(-logTTL)
-	ids, err := redis.Strings(c.Do("ZRANGEBYSCORE", key, "-inf", oldTime.UnixNano()))
-	if err != nil {
-		lg.Error(err.Error())
-		return
-	}
-
-	if len(ids) > 0 {
-		c.Send("MULTI")
-		for _, id := range ids {
-			c.Send("ZREM", key, id)
-			c.Send("HDEL", script, id)
+		if err == redis.ErrNil {
+			return nil, ErrNotFound
 		}
-		reply, err := redis.Values(c.Do("EXEC"))
-		if err != nil {
-			lg.Error(err.Error())
-			return
-		}
-		lg.Info("Trimmed %d old entries for %s", len(reply)/2, script)
-		return
+		return nil, err
 	}
-	lg.Info("No logs to trim for %s", script)
+
+	return reply, nil
+}
+
+func (db *DB) TotalLen() (int, error) {
+	sess := db.conn()
+	defer sess.Close()
+
+	reply, err := redis.Int(sess.Do("GET", "qmd:finished"))
+	if err != nil {
+		return 0, err
+	}
+
+	return reply, nil
+}
+
+func (db *DB) Len() (int, error) {
+	sess := db.conn()
+	defer sess.Close()
+
+	reply, err := redis.Strings(sess.Do("KEYS", "qmd:job:*"))
+	if err != nil {
+		return 0, err
+	}
+
+	return len(reply), nil
+}
+
+func (db *DB) conn() redis.Conn {
+	return db.pool.Get()
 }
