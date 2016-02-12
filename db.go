@@ -6,7 +6,8 @@ import (
 	"time"
 
 	"github.com/garyburd/redigo/redis"
-	"github.com/pressly/qmd/api"
+
+	"github.com/pressly/qmd/rest/api"
 )
 
 var (

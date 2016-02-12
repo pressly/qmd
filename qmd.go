@@ -2,19 +2,15 @@ package qmd
 
 import (
 	"fmt"
-	"log"
 	"net/http"
-	"os"
 	"sync"
 	"time"
 
 	"github.com/goware/disque"
-	"github.com/op/go-logging"
+	"github.com/goware/lg"
 
 	"github.com/pressly/qmd/config"
 )
-
-var lg = logging.MustGetLogger("qmd")
 
 type Qmd struct {
 	Config  *config.Config
@@ -22,7 +18,7 @@ type Qmd struct {
 	Queue   *disque.Pool
 	Scripts Scripts
 	Workers chan Worker
-	Logger  *logging.Logger
+	Slack   *SlackNotifier
 
 	Closing            bool
 	ClosingListenQueue chan struct{}
@@ -54,6 +50,13 @@ func New(conf *config.Config) (*Qmd, error) {
 		return nil, err
 	}
 
+	// TODO: SlackNOP.
+	slack := &SlackNotifier{
+		WebhookURL: conf.Slack.WebhookURL,
+		Channel:    conf.Slack.Channel,
+		Prefix:     fmt.Sprintf("%v: ", conf.URL),
+	}
+
 	qmd := &Qmd{
 		Config:             conf,
 		DB:                 db,
@@ -61,26 +64,24 @@ func New(conf *config.Config) (*Qmd, error) {
 		Workers:            make(chan Worker, conf.MaxJobs),
 		ClosingListenQueue: make(chan struct{}),
 		ClosingWorkers:     make(chan struct{}),
-		Logger:             lg,
+		Slack:              slack,
 	}
 
 	if err := qmd.Scripts.Update(qmd.Config.ScriptDir); err != nil {
 		return nil, err
 	}
 
-	backends := []logging.Backend{
-		logging.NewLogBackend(os.Stdout, "", log.LstdFlags),
-	}
+	// if err := lg.SetLevelString(strings.ToLower(conf.Logging.Level)); err != nil {
+	// 	return nil, err
+	// }
 
-	if conf.Slack.Enabled {
-		backends = append(backends, &SlackNotifier{
-			WebhookURL: conf.Slack.WebhookURL,
-			Channel:    conf.Slack.Channel,
-			Prefix:     fmt.Sprintf("%v: ", conf.URL),
-		})
+	lg.AlertFn = func(level lg.Level, msg string) {
+		qmd := qmd
+		switch level {
+		case lg.ErrorLevel, lg.FatalLevel, lg.PanicLevel:
+			qmd.Slack.Notify(fmt.Errorf("%s", msg))
+		}
 	}
-
-	logging.SetBackend(backends...)
 
 	return qmd, nil
 }

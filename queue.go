@@ -6,8 +6,9 @@ import (
 	"net/http"
 
 	"github.com/goware/disque"
+	"github.com/goware/lg"
 
-	"github.com/pressly/qmd/api"
+	"github.com/pressly/qmd/rest/api"
 )
 
 func (qmd *Qmd) ListenQueue() {

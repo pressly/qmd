@@ -9,7 +9,7 @@ import (
 
 	"github.com/pressly/qmd"
 	"github.com/pressly/qmd/config"
-	"github.com/pressly/qmd/server"
+	"github.com/pressly/qmd/rest"
 	"github.com/zenazn/goji/graceful"
 )
 
@@ -49,7 +49,7 @@ func main() {
 
 	// Start the API server.
 	log.Printf("Starting QMD API at %s\n", conf.Bind)
-	err = graceful.ListenAndServe(conf.Bind, server.APIHandler(app))
+	err = graceful.ListenAndServe(conf.Bind, rest.Routes(app))
 	if err != nil {
 		log.Fatal(err)
 	}

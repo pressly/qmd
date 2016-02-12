@@ -9,6 +9,12 @@ type ScriptsRequest struct {
 	CallbackURL string            `json:"callback_url,omitempty"`
 }
 
+type JobScriptsRequest struct {
+	ScriptsRequest `json:",inline"`
+	ID             string `json:"id"`
+	File           string `json:"file"`
+}
+
 type ScriptsResponse struct {
 	ID string `json:"id"`
 
@@ -25,10 +31,4 @@ type ScriptsResponse struct {
 	QmdOut      string    `json:"output,omitempty"`
 	ExecLog     string    `json:"exec_log,omitempty"`
 	Err         string    `json:"error,omitempty"`
-}
-
-type JobScriptsRequest struct {
-	ScriptsRequest `json:",inline"`
-	ID             string `json:"id"`
-	File           string `json:"file"`
 }

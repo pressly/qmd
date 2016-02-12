@@ -1,22 +1,11 @@
-package server
+package handlers
 
 import (
 	"fmt"
 	"net/http"
 
 	"github.com/zenazn/goji/web"
-	"github.com/zenazn/goji/web/middleware"
 )
-
-func JobsHandler() http.Handler {
-	s := web.New()
-	s.Use(middleware.SubRouter)
-
-	s.Get("/", Jobs)
-	s.Get("/:id", Job)
-
-	return s
-}
 
 func Job(c web.C, w http.ResponseWriter, r *http.Request) {
 	resp, err := Qmd.GetResponse(c.URLParams["id"])

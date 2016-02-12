@@ -10,6 +10,8 @@ import (
 	"sync"
 	"syscall"
 	"time"
+
+	"github.com/goware/lg"
 )
 
 type Cmd struct {

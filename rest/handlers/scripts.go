@@ -1,22 +1,15 @@
-package server
+package handlers
 
 import (
 	"encoding/json"
 	"net/http"
 
+	"github.com/goware/lg"
 	"github.com/goware/urlx"
 	"github.com/zenazn/goji/web"
-	"github.com/zenazn/goji/web/middleware"
 
-	"github.com/pressly/qmd/api"
+	"github.com/pressly/qmd/rest/api"
 )
-
-func ScriptsHandler() http.Handler {
-	s := web.New()
-	s.Use(middleware.SubRouter)
-	s.Post("/:filename", CreateJob)
-	return s
-}
 
 func CreateJob(c web.C, w http.ResponseWriter, r *http.Request) {
 	// Low, high and urgent priorities only (high is default).

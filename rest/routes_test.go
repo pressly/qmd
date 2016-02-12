@@ -1,4 +1,4 @@
-package server_test
+package rest_test
 
 import (
 	"io/ioutil"
@@ -8,13 +8,13 @@ import (
 
 	"github.com/pressly/qmd"
 	"github.com/pressly/qmd/config"
-	"github.com/pressly/qmd/server"
+	"github.com/pressly/qmd/rest"
 )
 
 func TestPing(t *testing.T) {
 	conf, _ := config.New("../etc/qmd.conf.sample")
 
-	Qmd := &qmd.Qmd{
+	qmd := &qmd.Qmd{
 		Config:             conf,
 		DB:                 nil,
 		Queue:              nil,
@@ -22,7 +22,7 @@ func TestPing(t *testing.T) {
 		ClosingWorkers:     make(chan struct{}),
 	}
 
-	ts := httptest.NewServer(server.APIHandler(Qmd))
+	ts := httptest.NewServer(rest.Routes(qmd))
 	defer ts.Close()
 
 	res, err := http.Get(ts.URL + "/ping")

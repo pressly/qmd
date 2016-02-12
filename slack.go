@@ -5,8 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-
-	"github.com/op/go-logging"
 )
 
 type SlackNotifier struct {
@@ -21,15 +19,11 @@ type slackPayload struct {
 	Text     string `json:"text"`
 }
 
-func (s *SlackNotifier) Log(level logging.Level, calldepth int, rec *logging.Record) error {
-	if level != logging.INFO {
-		return nil
-	}
-
+func (s *SlackNotifier) Notify(msg error) error {
 	payload, err := json.Marshal(slackPayload{
 		Channel:  s.Channel,
 		Username: "QMD",
-		Text:     s.Prefix + rec.Message(),
+		Text:     s.Prefix + msg.Error(),
 	})
 	if err != nil {
 		return err
@@ -39,7 +33,6 @@ func (s *SlackNotifier) Log(level logging.Level, calldepth int, rec *logging.Rec
 	if err != nil {
 		return err
 	}
-
 	if resp.StatusCode != 200 {
 		return fmt.Errorf("couldn't POST to slack webhook %v", s.WebhookURL)
 	}

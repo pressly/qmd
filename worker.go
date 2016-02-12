@@ -7,7 +7,8 @@ import (
 	"time"
 
 	"github.com/goware/disque"
-	"github.com/pressly/qmd/api"
+	"github.com/goware/lg"
+	"github.com/pressly/qmd/rest/api"
 )
 
 type Worker chan *disque.Job

@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"reflect"
 	"sync"
+
+	"github.com/goware/lg"
 )
 
 type Scripts struct {
