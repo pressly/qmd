@@ -32,20 +32,26 @@ func (qmd *Qmd) startWorker(id int, workers chan Worker) {
 		select {
 		// Wait for a job.
 		case job := <-worker:
-			lg.Infof("Worker %v:\tGot \"%v\" job %v/jobs/%v", id, job.Queue, qmd.Config.URL, job.ID)
+			msg := fmt.Errorf("Worker %v:\tGot \"%v\" job %v/jobs/%v", id, job.Queue, qmd.Config.URL, job.ID)
+			lg.Error(msg)
+			qmd.Slack.Notify(msg.Error())
 
 			var req *api.ScriptsRequest
 			err := json.Unmarshal([]byte(job.Data), &req)
 			if err != nil {
 				qmd.Queue.Ack(job)
-				lg.Infof("Worker %v:\tfailed #1 %v", err)
+				msg := fmt.Errorf("Worker %v:\tfailed: %v", err)
+				lg.Error(msg)
+				qmd.Slack.Notify(msg.Error())
 				break
 			}
 
 			script, err := qmd.GetScript(req.Script)
 			if err != nil {
 				qmd.Queue.Ack(job)
-				lg.Infof("Worker %v:\tfailed #2 %v", err)
+				msg := fmt.Errorf("Worker %v:\tfailed: %v", err)
+				lg.Error(msg)
+				qmd.Slack.Notify(msg.Error())
 				break
 			}
 
@@ -53,7 +59,9 @@ func (qmd *Qmd) startWorker(id int, workers chan Worker) {
 			cmd, err := qmd.Cmd(exec.Command(script, req.Args...))
 			if err != nil {
 				qmd.Queue.Ack(job)
-				lg.Infof("Worker %v:\tfailed #3 %v", err)
+				msg := fmt.Errorf("Worker %v:\tfailed: %v", err)
+				lg.Error(msg)
+				qmd.Slack.Notify(msg.Error())
 				break
 			}
 			cmd.JobID = job.ID
@@ -80,7 +88,9 @@ func (qmd *Qmd) startWorker(id int, workers chan Worker) {
 				cmd.Kill()
 				cmd.Cleanup()
 				qmd.Queue.Nack(job)
-				lg.Debugf("Worker %d:\tNACKed job %v/jobs/%v", id, qmd.Config.URL, job.ID)
+				msg := fmt.Errorf("Worker %d:\tNACKed job %v/jobs/%v", id, qmd.Config.URL, job.ID)
+				lg.Error(msg)
+				qmd.Slack.Notify(msg.Error())
 				return
 			}
 
@@ -111,7 +121,9 @@ func (qmd *Qmd) startWorker(id int, workers chan Worker) {
 			qmd.DB.SaveResponse(&resp)
 
 			qmd.Queue.Ack(job)
-			lg.Infof("Worker %v:\tACKed job %v/jobs/%v", id, qmd.Config.URL, job.ID)
+			msg = fmt.Errorf("Worker %v:\tACKed job %v/jobs/%v", id, qmd.Config.URL, job.ID)
+			lg.Error(msg)
+			qmd.Slack.Notify(msg.Error())
 
 		case <-qmd.ClosingWorkers:
 			lg.Debugf("Worker %d:\tStopping (idle)", id)

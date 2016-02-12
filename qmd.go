@@ -72,7 +72,6 @@ func New(conf *config.Config) (*Qmd, error) {
 	}
 
 	lg.AlertFn = func(level lg.Level, msg string) {
-		qmd := qmd
 		switch level {
 		case lg.ErrorLevel, lg.FatalLevel, lg.PanicLevel:
 			qmd.Slack.Notify(msg)
