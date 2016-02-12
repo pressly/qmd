@@ -29,7 +29,7 @@ func Routes(qmd *qmd.Qmd) http.Handler {
 	r.Use(heartbeat.Route("/ping"))
 	r.Use(heartbeat.Route("/"))
 
-	r.Post("/:filename", handlers.CreateJob)
+	r.Post("/scripts/:filename", handlers.CreateJob)
 
 	r.Get("/jobs", handlers.Jobs)
 	r.Get("/jobs/*", GetLongID, handlers.Job)
