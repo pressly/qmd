@@ -1,9 +1,0 @@
-github.com/op/go-logging #c1b91128b40ead0e98dbc63cde57c0541feaa6c1
-github.com/BurntSushi/toml #bd2bdf7f18f849530ef7a1c29a4290217cab32a1
-github.com/bitly/go-nsq #15045438e48e3f0bb674b7aff030d09c03ba9ae3
-github.com/garyburd/redigo/redis #1c7841955920910958c71b1cc1a03f628267d468
-github.com/pressly/gohttpware/... #5a4f361250fa98b19c736ab59eb409bdb98fe4a6
-github.com/zenazn/goji/web #32da78b2dfeb2f5353e3b14a54a1b30d356e979c
-github.com/zenazn/goji/graceful #32da78b2dfeb2f5353e3b14a54a1b30d356e979c
-github.com/zenazn/goji/web/middleware #32da78b2dfeb2f5353e3b14a54a1b30d356e979c
-code.google.com/p/go-uuid/uuid #7dda39b2e7d5e265014674c5af696ba4186679e9
