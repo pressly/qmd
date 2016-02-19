@@ -5,7 +5,7 @@ import (
 )
 
 func TestSampleConfigFile(t *testing.T) {
-	_, err := New("this-file-not-exists.conf")
+	_, err := New("this-file-doesnt-exist.conf")
 	if err == nil {
 		t.Error("expected error")
 	}

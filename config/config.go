@@ -3,7 +3,6 @@ package config
 import (
 	"errors"
 	"os"
-	"runtime"
 
 	"github.com/BurntSushi/toml"
 )
@@ -14,7 +13,6 @@ var ErrNoConfFile = errors.New("no configuration file specified")
 type Config struct {
 	Bind        string      `toml:"bind"`
 	URL         string      `toml:"url"`
-	MaxProcs    int         `toml:"max_procs"`
 	ScriptDir   string      `toml:"script_dir"`
 	WorkDir     string      `toml:"work_dir"`
 	StoreDir    string      `toml:"store_dir"`
@@ -51,10 +49,6 @@ func New(file string) (*Config, error) {
 	conf := &Config{}
 	if _, err := toml.DecodeFile(file, &conf); err != nil {
 		return nil, err
-	}
-
-	if conf.MaxProcs <= 0 {
-		conf.MaxProcs = runtime.NumCPU()
 	}
 
 	return conf, nil

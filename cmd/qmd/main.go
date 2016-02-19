@@ -4,7 +4,6 @@ import (
 	"flag"
 	"log"
 	"os"
-	"runtime"
 	"syscall"
 
 	"github.com/pressly/qmd"
@@ -31,9 +30,6 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-
-	// Limit number of OS threads.
-	runtime.GOMAXPROCS(conf.MaxProcs)
 
 	// Run QMD.
 	app, err := qmd.New(conf)
